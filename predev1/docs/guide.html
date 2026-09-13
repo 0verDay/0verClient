@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0verClient 使用与开发指南</title>
+<style>
+  :root {
+    --fg: #1f2430;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --accent: #2f6fed;
+    --ok: #15803d;
+    --warn: #b45309;
+    --danger: #b91c1c;
+    --bg-code: #f6f8fa;
+    --bg-soft: #f9fafb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0 20px 100px;
+    font-family: "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif;
+    color: var(--fg);
+    line-height: 1.75;
+    font-size: 15px;
+    background: #fff;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; }
+  header { padding: 40px 0 22px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0 0 6px; font-size: 29px; letter-spacing: -0.3px; }
+  h1 .ver { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 10px; }
+  .sub { color: var(--muted); margin: 0; }
+  h2 {
+    margin: 46px 0 14px;
+    font-size: 21px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  h3 { margin: 30px 0 10px; font-size: 16.5px; }
+  h4 { margin: 22px 0 8px; font-size: 15px; color: #374151; }
+  p { margin: 10px 0; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 13px;
+    background: var(--bg-code);
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+  }
+  pre {
+    background: var(--bg-code);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.65;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    margin: 12px 0;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 9px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--bg-soft); font-weight: 600; }
+  .note { border-left: 3px solid var(--accent); background: var(--bg-soft); padding: 12px 16px; margin: 16px 0; border-radius: 0 6px 6px 0; }
+  .warn { border-left-color: var(--warn); }
+  .danger { border-left-color: var(--danger); }
+  .ok { color: var(--ok); font-weight: 600; }
+  .bad { color: var(--danger); font-weight: 600; }
+  .muted { color: var(--muted); }
+  ul, ol { padding-left: 22px; }
+  li { margin: 5px 0; }
+  .toc { background: var(--bg-soft); border: 1px solid var(--line); border-radius: 8px; padding: 14px 20px; margin: 24px 0; }
+  .toc ol { margin: 6px 0; }
+  .toc .toc-part { font-weight: 700; margin: 10px 0 2px; display: block; }
+  .steps { counter-reset: step; list-style: none; padding-left: 0; }
+  .steps > li { counter-increment: step; margin: 22px 0; padding-left: 42px; position: relative; }
+  .steps > li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: 2px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  kbd { font-family: Consolas, monospace; font-size: 12.5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: #fff; }
+  .part {
+    margin: 54px 0 8px;
+    padding: 16px 22px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #2f6fed 0%, #4b8bf5 100%);
+    color: #fff;
+  }
+  .part .kicker { font-size: 12.5px; letter-spacing: 2px; opacity: .85; text-transform: uppercase; }
+  .part h2 { margin: 2px 0 4px; border: none; padding: 0; color: #fff; font-size: 23px; }
+  .part p { margin: 0; font-size: 13.5px; opacity: .92; }
+  .part.dev { background: linear-gradient(135deg, #15803d 0%, #22a05a 100%); }
+  .pill { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 10px; background: var(--bg-soft); border: 1px solid var(--line); color: var(--muted); }
+  .pill.ok { background: #ecfdf3; border-color: #bbf7d0; color: var(--ok); }
+  .pill.bad { background: #fef2f2; border-color: #fecaca; color: var(--danger); }
+  footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>0verClient 使用与开发指南<span class="ver">predev1</span></h1>
+  <p class="sub">第一部分讲玩家怎么用这个客户端，第二部分讲开发者怎么编译、部署和上架游戏</p>
+</header>
+
+<div class="toc">
+  <strong>目录</strong>
+  <span class="toc-part">第一部分 · 用户（玩家）</span>
+  <ol>
+    <li><a href="#u-what">先搞懂一件事：启动器本身不含游戏</a></li>
+    <li><a href="#u-run">运行客户端</a></li>
+    <li><a href="#u-server">选择服务器（设置页）</a></li>
+    <li><a href="#u-install">下载与安装游戏</a></li>
+    <li><a href="#u-launch">启动与结束游戏</a></li>
+    <li><a href="#u-files">文件都在哪里</a></li>
+    <li><a href="#u-faq">用户常见问题</a></li>
+  </ol>
+  <span class="toc-part">第二部分 · 开发者</span>
+  <ol start="8">
+    <li><a href="#d-env">开发环境</a></li>
+    <li><a href="#d-build">编译客户端与服务端</a></li>
+    <li><a href="#d-verify">本地验证</a></li>
+    <li><a href="#d-game">添加新游戏（打包内容）</a></li>
+    <li><a href="#d-deploy">上传服务端到云服务器</a></li>
+    <li><a href="#d-faq">开发常见问题</a></li>
+    <li><a href="#d-cheat">一页速查</a></li>
+  </ol>
+</div>
+
+<!-- ============================== 第一部分 ============================== -->
+
+<div class="part">
+  <div class="kicker">Part 1</div>
+  <h2>用户部分</h2>
+  <p>你拿到的是一个 <code>0verClient.exe</code>，接下来怎么用。</p>
+</div>
+
+<h2 id="u-what">1. 先搞懂一件事：启动器本身不含游戏</h2>
+<p>这是最容易误解的地方，先记住三句话：</p>
+<ol>
+  <li><b>启动器只是一个客户端。</b>它里面没有任何游戏，必须能访问到一个<b>内容源</b>（一台提供游戏清单和文件的服务器）。</li>
+  <li><b>游戏列表来自服务器，不是内置的。</b>启动器启动时拉取一个叫 <code>index.json</code> 的索引文件，界面上显示哪些游戏完全由它决定。</li>
+  <li><b>内容源必须一直开着。</b>服务器那边一停，游戏库立刻变空并提示「读取索引失败」——这不是客户端坏了。</li>
+</ol>
+<div class="note">
+  <b>「内容源」是什么？</b>就是一台跑着 0verClient 内容服务（或任何静态 Web 服务器）的机器，
+  上面放着一个站点目录。<code>index.json</code> 是这个目录的入口。
+  发布者会给你一个形如 <code>http://服务器地址:8787/index.json</code> 的地址 —— 这就是你要填的东西。
+</div>
+
+<h2 id="u-run">2. 运行客户端</h2>
+
+<h3>2.1 直接双击</h3>
+<p>下载到的客户端通常是一个文件夹，里面至少有：</p>
+<table>
+  <tr><th>文件</th><th>作用</th></tr>
+  <tr><td><code>0verClient.exe</code></td><td>启动器本体，双击它</td></tr>
+  <tr><td><code>launcher.json</code></td><td><b>预设配置</b>（如果发布者给了）。里面写好了服务器地址，让你不用手填</td></tr>
+  <tr><td><code>run-client.cmd</code></td><td>可选启动脚本。只有零依赖打包版才需要，双击它等于双击 exe</td></tr>
+</table>
+<p>双击 <code>0verClient.exe</code> 即可。窗口是半透明圆角的，左侧是导航栏。</p>
+
+<h3>2.2 界面结构</h3>
+<table>
+  <tr><th>位置</th><th>内容</th></tr>
+  <tr><td>左侧导航</td><td><b>游戏库</b> / <b>下载</b> / <b>设置</b> 三个页面</td></tr>
+  <tr><td>左下角</td><td>显示启动器版本号和当前<b>通道</b>（一般是 <code>latest</code>）</td></tr>
+  <tr><td>右上角</td><td><b>刷新游戏库</b> 按钮（常驻，任何时候都能点）</td></tr>
+</table>
+<p>第一次打开时，如果内容源没配置好或没启动，中间会显示错误提示和一个<b>重试</b>按钮。这是正常的，去「设置」页配好地址再刷新即可。</p>
+
+<div class="note">
+  <b>为什么第一次打开可能什么都没有？</b>因为启动器启动时就会去拉索引。
+  如果你还没填服务器地址（且发布者也没给 <code>launcher.json</code>），它默认指向
+  <code>http://127.0.0.1:8787/index.json</code> —— 那是开发者本机调试用的地址，你这边当然是空的。
+  直接去「设置」页改成发布者给你的地址即可。
+</div>
+
+<h2 id="u-server">3. 选择服务器（设置页）</h2>
+<p>点左侧「<b>设置</b>」。这里有三个字段，全部与「连哪台服务器」有关。</p>
+
+<h3>3.1 内容源索引地址</h3>
+<pre><code>http://你的服务器地址:8787/index.json</code></pre>
+<p>这就是<b>选服务器</b>的地方。发布者应该会给你这个地址。填完点「保存」。</p>
+
+<h3>3.2 允许的主机白名单</h3>
+<p>填服务器的主机名或 IP，<b>只填主机，不要带 <code>http://</code> 和端口</b>：</p>
+<pre><code>203.0.113.10
+:: 多个用逗号分隔
+203.0.113.10, cdn.example.com</code></pre>
+<p>留空表示不限制 https 主机（仍然只允许 https）。</p>
+
+<h3>3.3 允许明文 http</h3>
+<p>一个复选框，<b>仅调试用</b>。</p>
+
+<div class="note warn">
+  <b>明文 http 需要「两个条件同时满足」才会被放行：</b>
+  <ol>
+    <li>勾上「允许明文 http」这个开关</li>
+    <li>并且该主机出现在上面的白名单里</li>
+  </ol>
+  少任何一个都会被拒绝。这是故意设计的 —— 避免一个开关不小心把所有主机都放开。
+  <br><br>
+  <b>例外：</b>本机回环地址（<code>127.0.0.1</code> / <code>localhost</code>）天然允许明文 http，
+  不需要勾开关也不需要加白名单。这是为了方便本地调试。
+</div>
+
+<h3>3.4 三种典型场景</h3>
+<table>
+  <tr><th>场景</th><th>索引地址</th><th>白名单</th><th>明文 http</th></tr>
+  <tr>
+    <td><b>发布者给了预设</b>（<code>launcher.json</code>）</td>
+    <td colspan="3" class="ok">什么都不用做，直接刷新游戏库即可</td>
+  </tr>
+  <tr>
+    <td>自建 http 服务器（最常见）</td>
+    <td><code>http://IP:8787/index.json</code></td>
+    <td><code>IP</code></td>
+    <td>☑ 勾上</td>
+  </tr>
+  <tr>
+    <td>https 服务器（正式环境）</td>
+    <td><code>https://域名/index.json</code></td>
+    <td>可留空</td>
+    <td>☐ 不用勾</td>
+  </tr>
+</table>
+
+<div class="note">
+  <b>保存之后一定要点「刷新游戏库」。</b>保存只是写入了配置，不会自动重新读索引。
+  设置页和游戏库页右上角都有刷新按钮。
+</div>
+
+<h2 id="u-install">4. 下载与安装游戏</h2>
+
+<h3>4.1 卡片上那颗按钮会变</h3>
+<p>游戏库里的每个游戏是一张卡片，卡片上只有一个按钮，它的文字随状态变化：</p>
+<table>
+  <tr><th>按钮文字</th><th>含义</th><th>点它会怎样</th></tr>
+  <tr><td><b>安装</b></td><td>未安装</td><td>开始下载</td></tr>
+  <tr><td><b>取消</b></td><td>正在下载</td><td>中断安装（已下载的部分会保留）</td></tr>
+  <tr><td><b>启动</b></td><td>已安装</td><td>运行游戏</td></tr>
+  <tr><td><b>结束</b></td><td>游戏运行中</td><td>强制结束游戏进程</td></tr>
+  <tr><td><b>重试</b></td><td>安装失败</td><td>重新尝试安装</td></tr>
+</table>
+<p>卡片上还会显示状态文字，例如「未安装 · 可获取 v1.0.0」「已安装 v1.0.0」「运行中」「下载中 42%」。</p>
+
+<h3>4.2 下载过程</h3>
+<p>点「安装」后会显示进度条，同时给出：</p>
+<ul>
+  <li>已完成的文件数 / 总文件数</li>
+  <li>已下载字节 / 总字节</li>
+  <li>当前速度（例如 <code>512 KB/s</code>）</li>
+  <li>预计剩余时间</li>
+</ul>
+
+<h3>4.3 断点续传：中断了不用从头再来</h3>
+<p>这是个实用特性。<b>即使中途关掉客户端或断网，再次点「安装」会从断点继续</b>，而不是重新下载整个游戏。</p>
+<p>原理是每个文件都会先写成 <code>xxx.part</code>，续传时向服务器发 <code>Range</code> 请求只要剩下的部分。
+只有校验失败时才会删掉重来。</p>
+<div class="note">
+  <b>服务器不支持 Range 也能用</b>，只是退化成整文件重下，不能续传。
+  官方的内容服务是支持 Range 的。
+</div>
+
+<h3>4.4 「下载」页是什么</h3>
+<p>左侧第二个页面。它把<b>正在安装或已安装但还没启动</b>的游戏单独列出来，
+方便你在游戏很多的时候不用在游戏库里翻找。卡片操作和游戏库完全一样。</p>
+
+<h3>4.5 安装是「事务性」的</h3>
+<p>安装过程中会先写到临时目录，<b>全部文件校验通过后才一次性切换到位</b>。所以：</p>
+<ul>
+  <li>下载失败<b>绝不会</b>破坏你已经装好的旧版本</li>
+  <li>不会出现「装到一半、目录半新半旧」的状态</li>
+  <li>重复安装同一个版本时，已存在的文件会被直接复用（<b>瞬间完成、不重复下载</b>）</li>
+</ul>
+
+<h2 id="u-launch">5. 启动与结束游戏</h2>
+<p>安装完成后按钮变成「<b>启动</b>」，点击即运行。游戏运行期间：</p>
+<ul>
+  <li>按钮变成「<b>结束</b>」，可随时强制结束</li>
+  <li>状态显示「运行中」</li>
+  <li>游戏退出后，会自动记录<b>本次游玩时长</b>和累计时长</li>
+  <li>游戏异常退出（非正常退出码）会显示「游戏异常退出」并标记出来</li>
+</ul>
+<p>设置里还有一个 <code>KillGamesOnExit</code> 选项（默认关闭）：打开后，关闭启动器时会一并结束它启动的游戏。</p>
+
+<h2 id="u-files">6. 文件都在哪里</h2>
+<p>所有数据都在 <code>%LOCALAPPDATA%\0verClient\</code> 下，<b>不污染系统目录</b>：</p>
+<table>
+  <tr><th>路径</th><th>内容</th></tr>
+  <tr><td><code>%LOCALAPPDATA%\0verClient\settings.json</code></td><td>你的设置（索引地址、白名单、开关）</td></tr>
+  <tr><td><code>%LOCALAPPDATA%\0verClient\games\&lt;游戏id&gt;\</code></td><td>安装好的游戏文件</td></tr>
+  <tr><td><code>%LOCALAPPDATA%\0verClient\logs\0verclient-&lt;日期&gt;.log</code></td><td>运行日志，出问题时看这个</td></tr>
+  <tr><td><code>%LOCALAPPDATA%\0verClient\state\</code></td><td>已安装记录、游玩时长</td></tr>
+</table>
+<p>「设置」页最下方有<b>运行信息</b>区域，三个「打开」按钮分别打开数据目录、游戏目录、日志目录 —— 不用手敲路径。</p>
+
+<div class="note">
+  <b>想「重置成发布者的预设」怎么办？</b>删掉
+  <code>%LOCALAPPDATA%\0verClient\settings.json</code>，重启客户端。
+  预设 <code>launcher.json</code> 只在<b>你没有自己的 settings.json</b> 时才生效，
+  一旦你在设置页点过保存，就以你自己的为准，预设不会再覆盖你的修改。
+</div>
+
+<h2 id="u-faq">7. 用户常见问题</h2>
+
+<h3>游戏库是空的 / 提示「读取索引失败」</h3>
+<p>最常见的原因是<b>服务器那边的内容源没在运行</b>，或者地址填错了。按顺序检查：</p>
+<ol>
+  <li>用浏览器打开你的索引地址（例如 <code>http://IP:8787/index.json</code>）。能看到一段 JSON，说明服务器没问题</li>
+  <li>看不到 → 找发布者确认内容源是否开着</li>
+  <li>能看到但客户端仍然空 → 检查设置页的地址有没有填错端口，然后点「刷新游戏库」</li>
+</ol>
+
+<h3>提示「拒绝明文 http」</h3>
+<p>你的地址是 <code>http://</code> 而不是 <code>https://</code>。去设置页<b>同时</b>做两件事：勾上「允许明文 http」+ 把主机加进白名单，然后保存并刷新。</p>
+
+<h3>提示「URL 主机不在白名单内」</h3>
+<p>白名单填的不是当前这个地址的主机。注意白名单里<b>不要</b>写 <code>http://</code> 和端口。</p>
+
+<h3>提示「内容源地址自相矛盾」</h3>
+<p>索引文件里的下载地址指向 <code>127.0.0.1</code>，也就是你<b>自己这台电脑</b>。
+这几乎总是发布者拿「本地测试包」当「服务器包」发出去了。联系发布者重新发布。</p>
+
+<h3>提示「清单哈希校验失败」</h3>
+<p>服务器上的文件不完整（常见于只拷了 <code>index.json</code>，没拷 <code>manifest.json</code> 或游戏文件）。
+这是客户端在保护你 —— 它拒绝安装内容对不上的东西。联系发布者。</p>
+
+<h3>一屏弹窗 / 客户端卡死</h3>
+<p>这是早期版本的绑定 bug，已在 predev1 修复。更新到最新客户端即可。</p>
+
+<h3>还是不行</h3>
+<p>打开日志目录里最新的 <code>.log</code> 文件，里面有每一步的详细记录（拉取索引、每个文件的下载结果、错误堆栈）。把日志给发布者看，基本能定位。</p>
+
+<!-- ============================== 第二部分 ============================== -->
+
+<div class="part dev">
+  <div class="kicker">Part 2</div>
+  <h2>开发部分</h2>
+  <p>从源码编译出客户端与服务端、打包游戏内容、部署到云服务器。</p>
+</div>
+
+<h2 id="d-env">8. 开发环境</h2>
+
+<h3>8.1 需要什么</h3>
+<table>
+  <tr><th>项</th><th>要求</th><th>说明</th></tr>
+  <tr><td>操作系统</td><td>Windows</td><td>客户端是 WPF，只能跑 Windows</td></tr>
+  <tr><td>.NET SDK</td><td><b>10.0.401</b></td><td><code>global.json</code> 已钉死；配了 <code>rollForward: latestFeature</code>，所以 10.0.4xx 都可以</td></tr>
+  <tr><td>Git</td><td>任意版本</td><td>拉代码</td></tr>
+  <tr><td>PowerShell</td><td>5.1+</td><td>系统自带，构建脚本用它</td></tr>
+</table>
+<p>确认环境：</p>
+<pre><code>dotnet --version        :: 应显示 10.0.401 之类</code></pre>
+
+<h3>8.2 从零开始</h3>
+<pre><code>git clone https://github.com/0verDay/0verClient.git
+cd 0verClient\predev1
+.\run-demo.ps1 -SmokeTest</code></pre>
+<p>这一条命令会：编译 6 个工程 → 起一个本地内容源（<code>http://127.0.0.1:8787</code>）→ 跑 43 项引擎自检 → 打开启动器界面。
+看到游戏卡片就说明整条链路通了，可以点「安装」→「启动」。</p>
+<div class="note">
+  <b>零 NuGet 依赖。</b>7 个工程<b>没有一个</b> <code>PackageReference</code>，
+  普通的 <code>dotnet build</code> 完全不联网，HttpClient / SHA256 / ECDsa / System.Text.Json / Process 全在 BCL 里。
+  只有 AOT / 自包含发布才需要联网拉包（见 9.3）。
+</div>
+
+<h3>8.3 目录结构</h3>
+<pre><code>0verClient.slnx              解决方案（给 Visual Studio 用）
+run-demo.ps1                 一键本地 demo
+build-dist.ps1               打包服务端 / 客户端
+publish-testpack.ps1         打包测试包并探测服务器
+clean.ps1                    清理产物
+ServerIP.txt                 本机服务器地址（不进版本库，照 .example 建）
+src/0verClient.Core/         引擎：不依赖 UI，可无头测试
+  Manifest/                  清单模型 + 加载与哈希校验（信任链入口）
+  Net/                       HttpClient 下载：Range 断点续传 + 退避重试 + sha256
+  Install/                   安装事务：staging → 校验 → 原子切换；硬链接复用做增量
+  Launch/                    进程守护：启动、退出码、游玩时长、崩溃判定
+  Util/                      SafePath 路径守护、UrlPolicy 放行策略、Hashing、HardLink
+src/0verClient.App/          WPF 客户端：半透明圆角窗口、侧边栏、卡片
+src/0verClient.Server/       服务端：把站点目录用 HTTP 提供出去（Range + 每连接一线程）
+samples/DemoGame/            示例"游戏"（独立 WPF 程序，演示真实启动）
+samples/TestPack/            占位测试包（2152 字节，验证从服务器下载）
+tools/DevServer/             内容源：--root 现场生成清单 / --site 托管静态站点
+tools/Publish/               把游戏目录打包成静态站点（可增量追加多个游戏）
+tools/SmokeTest/             引擎自检：无头跑完整安装链路
+tools/serve-site.ps1         Windows Server 上的零安装静态服务器（支持 Range）
+tools/check-server.ps1       服务器六层健康检查
+docs/                        文档</code></pre>
+
+<h2 id="d-build">9. 编译客户端与服务端</h2>
+
+<h3>9.1 先分清两件事（最重要）</h3>
+<p>「打包」在本项目里指两件<b>完全不同</b>的事，混起来就会一头雾水：</p>
+<table>
+  <tr><th></th><th>打包<b>程序</b></th><th>打包<b>内容</b></th></tr>
+  <tr><td>是什么</td><td>把源码编译成 exe</td><td>把游戏目录变成静态站点（索引 + 清单 + 文件）</td></tr>
+  <tr><td>命令</td><td><code>.\build-dist.ps1</code></td><td><code>Publish.exe</code> 或 <code>.\publish-testpack.ps1</code></td></tr>
+  <tr><td>产物</td><td><code>dist\server\</code>、<code>dist\client\</code></td><td><code>build\site\</code></td></tr>
+  <tr><td>拷到哪</td><td>服务端 → 服务器；客户端 → 玩家</td><td>服务器上的 <code>site\</code> 目录</td></tr>
+  <tr><td>什么时候做</td><td><b>改了代码之后</b></td><td><b>加了游戏 / 更新版本之后</b></td></tr>
+</table>
+<div class="note">
+  两者频率完全不同：程序打包一次能用很久；内容每上一个游戏、每更新一次版本都要重打。
+  <br>所以「加了个游戏」<b>不需要重新编译 exe</b>，只需要重打站点。
+</div>
+
+<h3>9.2 两条核心命令</h3>
+<pre><code>cd C:\...\0verClient\predev1
+
+:: 服务端：原生单文件，约 2.2 MB，目标机什么都不用装
+.\build-dist.ps1 -Target server -Aot
+
+:: 客户端（二选一）
+.\build-dist.ps1 -Target client                            :: 约 280 KB，玩家需装 .NET 10 桌面运行时
+.\build-dist.ps1 -Target client -SelfContained -SingleFile :: 约 59 MB，玩家什么都不用装</code></pre>
+<div class="note warn">
+  <b>为什么服务端和客户端不合成一条命令？</b>
+  因为客户端是 WPF，<b>既不能 NativeAOT 也不能裁剪</b>（SDK 直接拒绝，报 <code>NETSDK1168</code>），
+  只能用自包含模式，而且必须加 <code>-SingleFile</code> 压缩才小；服务端则用 AOT 最划算。
+  两个目标的最优解不同，所以分开跑。
+  <br>（脚本会拦住你：<code>-Aot</code> 配 <code>-Target both</code> 会直接报错并说明原因。）
+</div>
+
+<h3>9.3 五种打包模式，怎么选</h3>
+<table>
+  <tr><th>模式</th><th>命令</th><th>体积</th><th>目标机要求</th><th>需联网一次</th></tr>
+  <tr>
+    <td><b>AOT</b>（服务端推荐）</td>
+    <td><code>-Target server -Aot</code></td>
+    <td>约 2.2 MB</td>
+    <td>无</td>
+    <td>是</td>
+  </tr>
+  <tr>
+    <td>裁剪</td>
+    <td><code>-Trimmed</code></td>
+    <td>约 12–20 MB <span class="muted">(估算)</span></td>
+    <td>无</td>
+    <td>是</td>
+  </tr>
+  <tr>
+    <td>框架依赖（默认）</td>
+    <td><code>-Target server</code></td>
+    <td>255 KB</td>
+    <td>装 .NET 10 运行时</td>
+    <td>否</td>
+  </tr>
+  <tr>
+    <td>自包含</td>
+    <td><code>-SelfContained</code></td>
+    <td>约 70 MB</td>
+    <td>无</td>
+    <td>是</td>
+  </tr>
+  <tr>
+    <td>便携（离线）</td>
+    <td><code>-Portable</code></td>
+    <td>约 77 MB</td>
+    <td>无</td>
+    <td><b>否</b></td>
+  </tr>
+</table>
+<p>什么时候换模式：</p>
+<ul>
+  <li><b>AOT 报错</b>（缺 MSVC 或 nuget 不可达）→ 先用 <code>-Portable</code> 顶上，体积大但一定能用</li>
+  <li><b>目标服务器本来就装了 .NET 10 运行时</b> → 用框架依赖，只有 255 KB</li>
+  <li><b>开发机不能上网</b> → 用 <code>-Portable</code>（直接复制本机已装的运行时，完全离线）</li>
+</ul>
+
+<h3>9.4 服务端产物</h3>
+<table>
+  <tr><th>文件</th><th>是什么</th><th>必需?</th></tr>
+  <tr><td><code>0verClient.Server.exe</code></td><td>原生单文件程序，约 2.2 MB。AOT 模式下无 runtimeconfig、无 deps.json、无任何 DLL</td><td>✅</td></tr>
+  <tr><td><code>run-server.cmd</code></td><td>启动脚本，参数已预填：<code>--root "%~dp0site" --port 8787 --add-firewall-rule</code></td><td>✅</td></tr>
+</table>
+<div class="note">
+  <b>默认会剥掉 <code>.pdb</code>。</b>NativeAOT 的调试符号可能比程序本身还大
+  （实测 9.7 MB 符号 vs 2.1 MB exe），服务器上用不到。需要排查崩溃时加 <code>-KeepSymbols</code>。
+</div>
+
+<h3>9.5 客户端产物</h3>
+<table>
+  <tr><th>文件</th><th>是什么</th></tr>
+  <tr><td><code>0verClient.exe</code></td><td>启动器本体</td></tr>
+  <tr><td><code>launcher.json</code></td><td><b>预设</b>：服务器地址、白名单、是否允许明文 http。玩家第一次运行自动生效</td></tr>
+  <tr><td><code>run-client.cmd</code></td><td>便携模式的启动脚本（设置 <code>DOTNET_ROOT</code> 指向内嵌运行时）</td></tr>
+  <tr><td><code>runtime\</code></td><td>内嵌的 .NET 运行时（仅便携/自包含模式）</td></tr>
+</table>
+<p><code>launcher.json</code> 的地址来自 <code>ServerIP.txt</code>：</p>
+<pre><code>{
+    "indexUrl":          "http://YOUR_SERVER_IP:8787/index.json",
+    "channel":           "latest",
+    "allowedHosts":      "YOUR_SERVER_IP",
+    "allowInsecureHttp": true
+}</code></pre>
+<p>端口不是 8787 时打包时指定：</p>
+<pre><code>.\build-dist.ps1 -Target client -SelfContained -SingleFile -ServerUrlPort 8788</code></pre>
+<div class="note">
+  <code>launcher.json</code> 只在玩家<b>还没有自己的设置</b>时生效。他一旦在设置页点过「保存」，
+  就以 <code>%LOCALAPPDATA%\0verClient\settings.json</code> 为准，预设不会覆盖他的修改。
+</div>
+
+<h3>9.6 为什么客户端这么大</h3>
+<p>171 MB 的构成（实测，非单文件模式）：</p>
+<table>
+  <tr><th>组成</th><th>大小</th><th>说明</th></tr>
+  <tr><td>Microsoft.NETCore.App</td><td>76.3 MB</td><td>.NET 基础运行时</td></tr>
+  <tr><td>Microsoft.WindowsDesktop.App</td><td>94.4 MB</td><td>WPF 运行时。其中约 22 MB 是 <b>WinForms</b>（我们完全没用到），但框架整体分发，取不出来</td></tr>
+  <tr><td>我们自己的程序</td><td>约 0.3 MB</td><td>exe + Core.dll + 两个 json</td></tr>
+</table>
+<p>所以客户端体积下界由「要不要玩家装运行时」决定：<b>要 → 280 KB</b>；<b>不要 → 59 MB</b>（单文件压缩）。</p>
+
+<h3>9.7 服务端的运行参数</h3>
+<pre><code>0verClient.Server.exe --root &lt;站点目录&gt; [选项]
+
+必需:
+  --root &lt;dir&gt;            由 Publish.exe 产出的站点目录（index.json 必须在它根下）
+
+选项:
+  --port &lt;n&gt;              监听端口（默认 8787）
+  --bind &lt;ip&gt;             绑定地址（默认 0.0.0.0 = 所有网卡；127.0.0.1 = 仅本机）
+  --throttle-kbps &lt;n&gt;     每连接限速（默认 0 = 不限速）
+  --idle-timeout-ms &lt;n&gt;   丢弃不发请求的空连接（默认 5000）
+  --add-firewall-rule     顺带放行 Windows 防火墙端口（需管理员）
+  --help                  显示帮助</code></pre>
+<div class="note">
+  <code>--idle-timeout-ms</code> 不是可有可无的：浏览器和 HTTP 客户端习惯先建立「预连接」再决定发不发请求，
+  没有空闲超时的话，<b>一个空连接就能把服务卡死</b> —— 端口仍显示 LISTENING、进程也活着，但对所有人都不再响应。
+</div>
+
+<h2 id="d-verify">10. 本地验证</h2>
+
+<h3>10.1 一键 demo</h3>
+<pre><code>.\run-demo.ps1                  :: 正常 demo
+.\run-demo.ps1 -SmokeTest       :: 先跑无头自检（43 项），再开界面
+.\run-demo.ps1 -DropAfter       :: 服务器中途掐断连接，验证断点续传
+.\run-demo.ps1 -NoThrottle      :: 不限速
+.\run-demo.ps1 -SkipBuild       :: 跳过编译</code></pre>
+
+<h3>10.2 三层验证，各管各的</h3>
+<table>
+  <tr><th>验证</th><th>命令</th><th>覆盖什么</th></tr>
+  <tr>
+    <td><b>界面自检</b></td>
+    <td><code>0verClient.exe --selfcheck</code></td>
+    <td>把全部 XAML 和游戏卡片模板真正实例化一遍。<span class="ok">退出码 0 = 通过</span></td>
+  </tr>
+  <tr>
+    <td><b>引擎自检</b></td>
+    <td><code>SmokeTest.exe --index &lt;url&gt; --fresh --verbose</code></td>
+    <td>无头跑完整安装链路，43 项检查</td>
+  </tr>
+  <tr>
+    <td><b>服务器自检</b></td>
+    <td><code>check-server.ps1</code>（在服务器上跑）</td>
+    <td>六层健康检查</td>
+  </tr>
+</table>
+<p>引擎自检展开：</p>
+<pre><code>dotnet run --project tools\SmokeTest -- `
+  --index http://127.0.0.1:8787/index.json --fresh --verbose --launch-check
+:: 期望结尾：全部通过（43 项检查）</code></pre>
+
+<div class="note warn">
+  <b>改过 XAML 之后必须跑 <code>--selfcheck</code>。</b>
+  XAML 的绑定模式错误是<b>运行时</b>才抛的，编译期 0 error。典型例子：
+  <code>ProgressBar.Value</code> 的元数据是 <code>BindsTwoWayByDefault</code>，
+  绑到只读属性时不写 <code>Mode=OneWay</code> 就会每张卡片抛一次 <code>XamlParseException</code>；
+  而卡片只在游戏库非空时才渲染，所以<b>内容源没起来时这个错误会一直躲着</b>。
+  <br><br>
+  容易被忽略的这类属性还有：<code>TextBox.Text</code>、<code>CheckBox.IsChecked</code>、<code>ListBox.SelectedIndex</code>。
+</div>
+
+<h2 id="d-game">11. 添加新游戏（打包内容）</h2>
+
+<h3>11.1 一步到位</h3>
+<pre><code>.\tools\Publish\bin\Debug\net10.0-windows\Publish.exe `
+  --game "D:\Games\我的游戏" --id mygame --name "我的游戏" `
+  --version 1.0.0 --base-url http://YOUR_SERVER_IP:8787 --out build\site</code></pre>
+<p><code>--game</code> 指向游戏目录，会把里面的文件<b>递归</b>全部纳入。</p>
+
+<h3>11.2 完整参数</h3>
+<table>
+  <tr><th>参数</th><th>必需</th><th>说明</th></tr>
+  <tr><td><code>--game &lt;folder&gt;</code></td><td>✅</td><td>游戏文件所在目录（递归）</td></tr>
+  <tr><td><code>--id &lt;gameId&gt;</code></td><td>✅</td><td>稳定的游戏 id，同时用作目录名，例如 <code>testpack</code></td></tr>
+  <tr><td><code>--out &lt;siteDir&gt;</code></td><td>✅</td><td>站点输出根目录（不存在会创建；可重复运行）</td></tr>
+  <tr><td><code>--base-url &lt;url&gt;</code></td><td>✅</td><td>站点目录对外的公开 URL 前缀，例如 <code>http://IP:8787</code></td></tr>
+  <tr><td><code>--name &lt;text&gt;</code></td><td></td><td>显示名（默认同 <code>--id</code>）</td></tr>
+  <tr><td><code>--version &lt;text&gt;</code></td><td></td><td>版本号（默认 <code>1.0.0</code>）</td></tr>
+  <tr><td><code>--channel &lt;name&gt;</code></td><td></td><td>通道名（默认 <code>latest</code>）</td></tr>
+  <tr><td><code>--summary &lt;text&gt;</code></td><td></td><td>卡片上的简短描述</td></tr>
+  <tr><td><code>--accent &lt;#RRGGBB&gt;</code></td><td></td><td>卡片主题色（默认 <code>#4C8DFF</code>）</td></tr>
+  <tr><td><code>--tags &lt;a,b,c&gt;</code></td><td></td><td>逗号分隔的标签</td></tr>
+  <tr><td><code>--notes &lt;text&gt;</code></td><td></td><td>更新说明</td></tr>
+  <tr><td><code>--launch &lt;relpath&gt;</code></td><td></td><td>启动入口；省略时自动探测 <code>.exe</code>/<code>.cmd</code>/<code>.bat</code></td></tr>
+  <tr><td><code>--launch-arg &lt;value&gt;</code></td><td></td><td>启动参数，可重复写多次</td></tr>
+  <tr><td><code>--min-launcher &lt;ver&gt;</code></td><td></td><td>最低启动器版本（默认 <code>0.1.0</code>）</td></tr>
+  <tr><td><code>--keep-pdb</code></td><td></td><td>保留 <code>.pdb</code>（默认排除）</td></tr>
+</table>
+
+<h3>11.3 加第二个游戏不会覆盖第一个</h3>
+<p><code>index.json</code> 是<b>合并</b>不是覆盖。用同一个 <code>--out</code> 再跑一次、换个 <code>--id</code>，
+新游戏会追加进去，已有的游戏原样保留。游戏可以一个一个加。</p>
+<pre><code>:: 第一个
+Publish.exe --game "D:\Games\A" --id gamea --name "游戏A" --version 1.0.0 `
+  --base-url http://YOUR_SERVER_IP:8787 --out build\site
+
+:: 第二个（游戏A 不受影响）
+Publish.exe --game "D:\Games\B" --id gameb --name "游戏B" --version 1.0.0 `
+  --base-url http://YOUR_SERVER_IP:8787 --out build\site</code></pre>
+<p>用<b>同一个 <code>--id</code></b> 再跑一次则是<b>更新</b>那个游戏（发布新版本）。</p>
+
+<h3>11.4 发布新版本 / 通道</h3>
+<pre><code>:: 把 mygame 更新到 1.1.0
+Publish.exe --game "D:\Games\我的游戏" --id mygame --name "我的游戏" `
+  --version 1.1.0 --notes "修了几个 bug" `
+  --base-url http://YOUR_SERVER_IP:8787 --out build\site
+
+:: 发到 beta 通道，玩家只有把设置里的通道改成 beta 才会拿到
+Publish.exe --game "D:\Games\我的游戏-test" --id mygame --version 1.2.0-beta `
+  --channel beta --base-url http://YOUR_SERVER_IP:8787 --out build\site</code></pre>
+<p>一个游戏可以有多个<b>通道</b>（<code>latest</code> / <code>beta</code> …），每个通道各自指向一个版本的清单。
+客户端默认读 <code>latest</code>。</p>
+
+<h3>11.5 站点结构长什么样</h3>
+<pre><code>build\site\
+    index.json                        根索引：有哪些游戏、清单地址 + 清单 sha256
+    games\
+        mygame\
+            manifest.json             文件清单：路径 / 大小 / sha256 / URL、启动方式
+            files\                    游戏文件本身（按原目录结构）
+                ...</code></pre>
+<p>两层清单各有分工，都是<b>唯一真相源</b>，客户端不硬编码任何游戏信息：</p>
+<table>
+  <tr><th>文件</th><th>回答什么问题</th><th>变动频率</th></tr>
+  <tr><td><code>index.json</code></td><td>有哪些游戏？每个通道当前版本的清单在哪、清单的 sha256 是多少？</td><td>加游戏时变</td></tr>
+  <tr><td><code>manifest.json</code></td><td>这个版本由哪些文件组成（路径/大小/sha256）？怎么启动？最低启动器版本？</td><td>每个版本一份，<b>不可变</b></td></tr>
+</table>
+
+<h3>11.6 新增游戏后的完整流程</h3>
+<ol class="steps">
+  <li>用 <code>Publish.exe</code> 打包进 <code>build\site</code>（加上文）</li>
+  <li>把整个 <code>build\site</code> 传到服务器，覆盖服务器上的 <code>site\</code></li>
+  <li>玩家点「刷新游戏库」，新游戏就出现了</li>
+</ol>
+<div class="note">
+  <b>不需要重新编译服务端。</b>服务端只是把目录用 HTTP 提供出去，站点内容变了它自动就提供新的。
+  也不需要重启服务端进程。
+</div>
+
+<h2 id="d-deploy">12. 上传服务端到云服务器</h2>
+
+<h3>12.1 整体链路</h3>
+<pre><code>本机                                          云服务器
+────────────────────────────────────────      ─────────────────────────────────
+1. dotnet build / build-dist.ps1              4. 起内容源（服务端 exe 或 serve-site.ps1）
+2. publish-testpack.ps1 / Publish.exe         5. 放行 Windows 防火墙  +  云安全组
+3. 传 dist\server + build\site  ──────────►   6. 验证：浏览器打开 index.json
+</code></pre>
+
+<h3>12.2 一次性：写服务器地址</h3>
+<p>新建 <code>predev1\ServerIP.txt</code>，里面只写一行公网 IP（照 <code>ServerIP.txt.example</code>）：</p>
+<pre><code>203.0.113.10</code></pre>
+<div class="note danger">
+  <b>这个文件不进版本库</b>（已被 <code>.gitignore</code> 排除），因为它是你的私有地址。
+  它同时被 <code>publish-testpack.ps1</code>、<code>build-dist.ps1</code>、<code>check-server.ps1</code> 读取，
+  是服务器地址的<b>唯一真相源</b>。
+</div>
+
+<h3>12.3 打包内容（两条路）</h3>
+<pre><code>:: 路 A：测试包（自带，用来验证整条链路）
+.\publish-testpack.ps1
+
+:: 路 B：真正要上的游戏
+.\tools\Publish\bin\Debug\net10.0-windows\Publish.exe `
+  --game "D:\Games\我的游戏" --id mygame --name "我的游戏" `
+  --version 1.0.0 --base-url http://YOUR_SERVER_IP:8787 --out build\site</code></pre>
+<p><code>publish-testpack.ps1</code> 会读 <code>ServerIP.txt</code> → 编译 Publish → 用正确的
+<code>--base-url</code> 打包 → 把剩下的步骤打印在屏幕上 → 最后探测一次服务器是否已能连上。</p>
+
+<div class="note danger">
+  <b><code>--base-url</code> 会被以绝对 URL 写死进 <code>index.json</code> 和 <code>manifest.json</code>。</b>
+  所以<b>地址或端口一变就必须重新打包</b>。
+  <br>给服务器打的包在本地托管<b>必然失败</b>，反之亦然 —— 这不是 bug，是内容寻址的设计代价。
+  <br><code>publish-testpack.ps1</code> 每次都清空重建 <code>build\site</code>，就是为了不让旧地址残留下来。
+</div>
+<p>想先在本地验证打包结果，用 <code>-Local</code>（URL 指向 <code>127.0.0.1</code>）：</p>
+<pre><code>.\publish-testpack.ps1 -Local -SkipCheck
+.\tools\serve-site.ps1 -Root build\site -Port 8787 -Bind 127.0.0.1</code></pre>
+
+<h3>12.4 上传到服务器</h3>
+<p>最终服务器上应该<b>只有这些</b>：</p>
+<pre><code>C:\0verclient\
+    0verClient.Server.exe      ← dist\server
+    run-server.cmd             ← dist\server
+    site\
+        index.json
+        games\&lt;id&gt;\manifest.json
+        games\&lt;id&gt;\files\...</code></pre>
+<p>传输方式随你：远程桌面剪贴板（文件小的话）、<code>scp</code>、或者 mstsc 挂载本地磁盘后从
+<code>\\tsclient\C\...</code> 复制（几个 GB 的游戏用这个）。</p>
+<div class="note">
+  <b>只用 PowerShell 也行。</b>仓库里的 <code>tools\serve-site.ps1</code> 是零安装的静态服务器
+  （Windows Server 自带 PowerShell 就能跑，支持 Range），可以完全替代
+  <code>0verClient.Server.exe</code>。两种方式二选一即可。
+</div>
+
+<h3>12.5 在服务器上起服务</h3>
+<p><b>用服务端 exe（推荐，管理员身份运行以便自动加防火墙规则）：</b></p>
+<pre><code>:: 双击 run-server.cmd，或手动：
+.\0verClient.Server.exe --root C:\0verclient\site --port 8787 --add-firewall-rule</code></pre>
+<p><b>或用 PowerShell 版（同样管理员）：</b></p>
+<pre><code>powershell -ExecutionPolicy Bypass -File C:\0verclient\serve-site.ps1 `
+  -Root C:\0verclient\site -Port 8787 -AddFirewallRule</code></pre>
+<p><span class="ok">期望看到：</span></p>
+<pre><code>0verClient content server is running
+  root        : C:\0verclient\site
+  listening   : 0.0.0.0:8787 (all network interfaces)
+  idle timeout: 5000 ms (a connection that sends no request is dropped)</code></pre>
+<div class="note danger">
+  <b>这个窗口不要关。</b>关掉内容源就停了，玩家那边游戏库立刻变空。
+  <br>注意区分：<b>叉掉远程桌面窗口</b>（断开连接）→ 进程还在；
+  <b>注销 / 重启服务器</b> → 进程没了，必须重新运行。
+  <br>想长期常驻：用计划任务开机自启，或换 IIS。
+</div>
+
+<h3>12.6 两层防火墙，都要开</h3>
+<p>这是最容易卡住的一步 —— <b>机器上的 Windows 防火墙</b>和<b>云厂商的安全组</b>是两回事：</p>
+<table>
+  <tr><th>层</th><th>在哪开</th><th>怎么做</th></tr>
+  <tr>
+    <td>Windows 防火墙</td>
+    <td>服务器上</td>
+    <td>启动时加 <code>--add-firewall-rule</code>（管理员）自动加；或手动 <code>netsh</code></td>
+  </tr>
+  <tr>
+    <td>云安全组</td>
+    <td>云控制台</td>
+    <td>找到实例 → <b>防火墙</b> / 安全组 → 添加规则：协议 <b>TCP</b>、端口 <b>8787</b>、来源 <code>0.0.0.0/0</code></td>
+  </tr>
+</table>
+<p>腾讯云轻量应用服务器在「实例 → 防火墙」里加。</p>
+
+<h3>12.7 验证</h3>
+<p><b>第 1 步：</b>在<b>你本机</b>浏览器打开：</p>
+<pre><code>http://YOUR_SERVER_IP:8787/index.json</code></pre>
+<p>能看到一段 JSON，就说明<b>服务器 + Windows 防火墙 + 云安全组三层全通</b>。</p>
+
+<p><b>第 2 步：</b>在<b>服务器上</b>跑六层健康检查（它会一次把六层全查完并告诉你哪层坏了）：</p>
+<pre><code>powershell -ExecutionPolicy Bypass -File C:\0verclient\check-server.ps1</code></pre>
+<p>全通时打印 <code>EVERYTHING ON THIS MACHINE IS FINE</code>，并告诉你问题在云安全组。</p>
+
+<p>访问不了时，<b>按从里到外的顺序</b>查：</p>
+<table>
+  <tr><th>层</th><th>在哪查</th><th>命令</th><th>失败说明</th></tr>
+  <tr><td>1 文件</td><td>服务器</td><td><code>dir C:\0verclient\site</code></td><td>目录层级错了 / 没拷</td></tr>
+  <tr><td>2 进程</td><td>服务器</td><td><code>netstat -ano | findstr :8787</code></td><td>内容源窗口被关了</td></tr>
+  <tr><td>3 本机 HTTP</td><td>服务器</td><td><code>curl.exe -s -o NUL -w "%{http_code}" http://127.0.0.1:8787/index.json</code></td><td>服务死了或 <code>-Root</code> 指错</td></tr>
+  <tr><td>4 清单 URL</td><td>服务器</td><td><code>Select-String -Path C:\0verclient\site\index.json -Pattern '127\.0\.0\.1|YOUR_SERVER_IP'</code></td><td>拷的是 <code>-Local</code> 包</td></tr>
+  <tr><td>5 机器防火墙</td><td>服务器</td><td><code>Get-NetFirewallRule -DisplayName "*0verClient*"</code></td><td>没加规则</td></tr>
+  <tr><td>6 云安全组</td><td>控制台</td><td>实例 → 防火墙</td><td>没放行 8787</td></tr>
+</table>
+<div class="note">
+  <b>第 3 层能通、但你本机打不开 → 问题一定在第 5 或第 6 层</b>，不用再怀疑前四层。
+</div>
+
+<h3>12.8 最后：让玩家连上</h3>
+<p>把客户端和 <code>launcher.json</code> 一起发给玩家（打包时若 <code>ServerIP.txt</code> 存在，
+预设地址会自动写好），他就<b>不需要做任何设置</b>。
+没给预设的话，让他按<a href="#u-server">第 3 节</a>手填地址。</p>
+<p>迁移到另一台服务器：拷 <code>dist\server</code> 过去 → 双击 <code>run-server.cmd</code> →
+放行新机器的 8787。若 IP 变了，改 <code>ServerIP.txt</code> 后重新 <code>publish-testpack.ps1</code>，
+再把 <code>build\site</code> 传过去（<b>清单里是绝对 URL，地址变了必须重打</b>）。</p>
+
+<h2 id="d-faq">13. 开发常见问题</h2>
+
+<h3><code>dotnet build 0verClient.slnx</code> 失败，但显示 0 个错误</h3>
+<p>这是<b>环境问题，不是项目问题</b>。根因通常是 .NET SDK 安装不完整 —— 缺
+<code>Sdks\Microsoft.NET.SDK.WorkloadAutoImportPropsLocator</code> 和
+<code>Sdks\Microsoft.NET.SDK.WorkloadManifestTargetsLocator</code> 两个目录，
+restore 阶段会在 <code>_FilterRestoreGraphProjectInputItems</code> 静默失败。
+<br><b>解决：修复 / 重装 .NET SDK 10.0.401。</b>
+<br>日常开发用 <code>.\run-demo.ps1</code> 或逐个编译 csproj 即可绕开（脚本本来就是这么做的，报错也更直接）。</p>
+
+<h3>AOT 打包报 <code>MSB3073</code> / <code>link.exe</code> / <code>vcruntime</code></h3>
+<p>缺 MSVC 工具链。打开 Visual Studio Installer → 修改 → 勾选<b>「使用 C++ 的桌面开发」</b>（含 Windows SDK）。</p>
+
+<h3>AOT 打包报 <code>NU1301</code> / <code>NU1100</code></h3>
+<p>拉不到包。<code>NU1100 无法解析</code> 通常是 <code>nuget.config</code> 里没有包源；
+<code>NU1301 Unable to load the service index</code> 是网络/代理问题。
+先确认能访问 <code>https://api.nuget.org/v3/index.json</code>。
+<br>注：<code>nuget.config</code> 刻意保留了官方源 —— 曾经写成 <code>&lt;clear /&gt;</code> 时，
+AOT restore 会在 0.6 秒内以 NU1100 失败，快得看不出是「没配源」，很容易误判成网络问题。</p>
+
+<h3>重新打包会不会把 <code>dist\server\site</code> 里的游戏删掉</h3>
+<p><b>不会。</b>打包脚本会保留 <code>site</code> 子目录（只清理程序文件）——
+因为 <code>run-server.cmd</code> 默认就指向 <code>%~dp0site</code>，
+每次构建都清空会静默删掉几个 GB 的游戏文件。</p>
+
+<h3><code>-SelfContained</code> 和 <code>-Portable</code> 的区别</h3>
+<p><code>-SelfContained</code> 从 nuget.org 下载运行时（需联网一次）；
+<code>-Portable</code> 直接复制<b>本机已装</b>的运行时（完全离线）。
+两者产出的包都能在没装 .NET 的机器上直接跑。</p>
+
+<h3>客户端改了设置但没生效</h3>
+<p>玩家已有的 <code>%LOCALAPPDATA%\0verClient\settings.json</code> 优先于预设。删掉它即可回到预设。</p>
+
+<h3>仓库的编辑约定（三个坑）</h3>
+<ol>
+  <li><b><code>run-demo.ps1</code> 必须保持纯 ASCII。</b>Windows PowerShell 5.1 会按 ANSI 代码页
+  解码无 BOM 的 <code>.ps1</code>，中文变乱码会直接破坏语法。控制台工具同理（所以 Publish 输出是英文）。</li>
+  <li><b>PowerShell 里别把参数名当局部变量名。</b><code>[switch]$SmokeTest</code> 会把
+  <code>$SmokeTest</code> 约束成 <code>SwitchParameter</code>，再写 <code>$smokeTest = &lt;路径&gt;</code>
+  就会抛类型转换错误。</li>
+  <li><b>XAML 里绑定到只读属性必须显式写 <code>Mode=OneWay</code>。</b>见 10.2 的说明，
+  改完 XAML 一定跑一次 <code>--selfcheck</code>。</li>
+</ol>
+
+<h3>要推 GitHub 前怎么清干净</h3>
+<pre><code>.\clean.ps1 -WhatIf      :: 先看会删什么
+.\clean.ps1              :: 真删</code></pre>
+<p><code>.gitignore</code> 已覆盖 <code>bin/ obj/ dist/ build/ artifacts/ .dotnet/ .nuget/ .tmp/ .vs/ ServerIP.txt</code>，
+也就是所有产物、缓存和本机配置都不会进仓库。
+行尾策略由根目录的 <code>.gitattributes</code> 固定（统一 LF，批处理 CRLF）。</p>
+
+<h2 id="d-cheat">14. 一页速查</h2>
+<pre><code>:: ── 打包程序 ─────────────────────────────────────
+.\build-dist.ps1 -Target server -Aot                         :: 服务端 2.2 MB 原生
+.\build-dist.ps1 -Target client                              :: 客户端 280 KB（需 .NET 运行时）
+.\build-dist.ps1 -Target client -SelfContained -SingleFile   :: 客户端 59 MB 零依赖
+
+:: ── 打包内容（游戏站点）────────────────────────
+.\publish-testpack.ps1                                       :: 测试包（读 ServerIP.txt）
+Publish.exe --game &lt;目录&gt; --id &lt;id&gt; --name "&lt;名称&gt;" `
+    --version 1.0.0 --base-url http://YOUR_SERVER_IP:8787 --out build\site
+
+:: ── 本地跑 demo ────────────────────────────────
+.\run-demo.ps1
+.\run-demo.ps1 -SmokeTest
+
+:: ── 起内容源（服务器上）────────────────────────
+0verClient.Server.exe --root C:\0verclient\site --port 8787 --add-firewall-rule
+powershell -ExecutionPolicy Bypass -File C:\0verclient\serve-site.ps1 -Root C:\0verclient\site -Port 8787 -AddFirewallRule
+
+:: ── 验证 ──────────────────────────────────────
+0verClient.exe --selfcheck                                   :: 界面，0 = 通过
+SmokeTest.exe --index &lt;url&gt; --fresh --verbose --launch-check  :: 引擎 43 项
+check-server.ps1（在服务器上）                                 :: 服务器六层
+
+:: ── 清理 ──────────────────────────────────────
+.\clean.ps1 -WhatIf
+.\clean.ps1</code></pre>
+
+<div class="note">
+  <b>记住这条主线：</b>
+  <br><code>build-dist.ps1</code> 打包<b>程序</b> → exe 进服务器 / 发玩家
+  <br><code>Publish.exe</code> / <code>publish-testpack.ps1</code> 打包<b>内容</b> → <code>build\site</code> 进服务器的 <code>site\</code>
+  <br>改了代码重打程序；加了游戏只重打内容。
+</div>
+
+<footer>
+  0verClient · 使用与开发指南 &nbsp;|&nbsp;
+  完整部署与故障排查另见 <code>docs/index.html</code> 与 <code>docs/START-HERE.md</code>
+</footer>
+
+</div>
+</body>
+</html>

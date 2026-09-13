@@ -6,8 +6,8 @@
 > 🚀 **第一次用请直接看 [`docs/START-HERE.md`](docs/START-HERE.md)** ——
 > 从本地验证到服务器部署的完整七阶段流程，每步都有 ✅ 期望结果和排查表。
 >
-> 📦 **要打包出服务端 / 客户端请看 [`docs/操作指南.html`](docs/操作指南.html)** ——
-> 命令、产物清单、放哪里、怎么验证，以及常见打包报错。
+> 📦 **要打包出服务端 / 客户端请看 [`docs/guide.html`](docs/guide.html)** ——
+> 使用、编译、部署到云、上架新游戏，以及常见报错。
 
 ## 跑起来
 
@@ -95,7 +95,7 @@ dotnet run --project tools\SmokeTest -- --index http://127.0.0.1:8787/index.json
 
 > 客户端的 WPF 界面**不能裁剪也不能 AOT**（SDK 直接拒绝：`NETSDK1168`），所以它的体积下界由
 > 「要不要玩家装运行时」决定：要 → 280 KB；不要 → 59 MB。原来的 171 MB 便携包已被单文件压缩版取代。
-> 详见 [`docs/操作指南.html`](docs/操作指南.html)。
+> 详见 [`docs/guide.html`](docs/guide.html)。
 
 > 默认会剥掉 `.pdb`。NativeAOT 的调试符号可能比程序本身还大（实测 9.7 MB 符号 vs 2.1 MB exe），
 > 服务器上用不到。需要时加 `-KeepSymbols`。
@@ -167,7 +167,7 @@ dotnet run --project tools\SmokeTest -- --index http://127.0.0.1:8787/index.json
 run-demo.ps1                 一键 demo（刻意纯 ASCII，见文件头注释）
 build-dist.ps1               打包服务器端与客户端（框架依赖 / 自包含 / 便携 三种模式）
 docs/SERVER.md               把游戏部署到服务器（nginx / COS / 防火墙 / 备案）
-docs/操作指南.html            打包服务端与客户端的操作指南（改了代码之后看这个）
+docs/guide.html               使用与开发指南（第一部分用户 / 第二部分开发者）
 src/0verClient.Core/         引擎：不依赖 UI，可无头测试
   Manifest/                  清单模型 + 加载与哈希校验（信任链入口）
   Net/                       HttpClient 下载：Range 断点续传 + 退避重试 + sha256
