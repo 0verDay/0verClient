@@ -1,0 +1,12 @@
+把这一行换成你自己的服务器地址，然后另存为 ServerIP.txt（同一个目录）。
+
+可以填公网 IP：
+    203.0.113.10
+也可以填域名：
+    game.example.com
+
+说明：
+  - 整个文件只认一行内容，首尾空格会被自动去掉
+  - 不要带 http:// 前缀，也不要带端口（端口在脚本里用 -Port 指定，默认 8787）
+  - publish-testpack.ps1 / build-dist.ps1 / check-server.ps1 都从这个文件读取地址
+  - ServerIP.txt 属于本机配置，已在 .gitignore 里，不会被提交

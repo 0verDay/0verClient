@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>OverClient.Core</RootNamespace>
+    <AssemblyName>0verClient.Core</AssemblyName>
+
+    <!-- 引擎不使用任何 Windows 桌面框架 API（只有 BCL + 一个 kernel32 硬链接 P/Invoke），
+         所以刻意用 net10.0 而不是 net10.0-windows。
+         这带来两个实际好处：
+           1) 结构上坐实了"Core 不依赖 UI/OS 框架"，将来换 UI 不用动它
+           2) NativeAOT / 自包含发布时不必再下载 WindowsDesktop 与 AspNetCore 运行时包 -->
+    <TargetFramework>net10.0</TargetFramework>
+
+    <!-- 这套反射 JSON 辅助（JsonDefaults）只给客户端和打包工具用。
+         服务器读 index.json 用的是 Utf8JsonReader，从不调用这里 —— 见 Server/Program.cs。
+         但引用 Core 会让 NativeAOT 分析器对这套死代码报 IL2026/IL3050。
+         只在 AOT 发布时抑制，普通构建里保持可见：将来真要给客户端做裁剪时不会漏掉它。 -->
+    <NoWarn Condition="'$(PublishAot)' == 'true'">$(NoWarn);IL2026;IL3050</NoWarn>
+  </PropertyGroup>
+
+</Project>

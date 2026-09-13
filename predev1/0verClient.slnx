@@ -1,0 +1,14 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+  </Configurations>
+  <Project Path="src/0verClient.Core/0verClient.Core.csproj" />
+  <Project Path="src/0verClient.App/0verClient.App.csproj" />
+  <Project Path="src/0verClient.Server/0verClient.Server.csproj" />
+  <Project Path="samples/DemoGame/DemoGame.csproj" />
+  <Project Path="tools/DevServer/DevServer.csproj" />
+  <Project Path="tools/SmokeTest/SmokeTest.csproj" />
+  <Project Path="tools/Publish/Publish.csproj" />
+</Solution>

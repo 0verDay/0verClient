@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>OverClient.DemoGame</RootNamespace>
+    <AssemblyName>DemoGame</AssemblyName>
+  </PropertyGroup>
+
+</Project>

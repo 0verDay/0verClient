@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>OverClient.Server</RootNamespace>
+    <AssemblyName>0verClient.Server</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+
+    <!-- 服务器只用 BCL（socket / 文件 / 控制台）+ netsh 子进程，不需要 Windows 桌面框架。
+         用 net10.0 可以避免 AOT/自包含发布时下载 WindowsDesktop 与 AspNetCore 运行时包。 -->
+    <TargetFramework>net10.0</TargetFramework>
+
+    <!-- Marker for the trim/AOT analyzers: this project is meant to survive NativeAOT.
+         InvariantGlobalization above is required for that (no ICU dependency).
+
+         Condition it on PublishAot. Switching it on unconditionally makes even a plain
+         `dotnet build` reference Microsoft.NET.ILLink.Tasks, which breaks this
+         repository's zero-NuGet, fully-offline build property (verified the hard way). -->
+    <IsAotCompatible Condition="'$(PublishAot)' == 'true'">true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\0verClient.Core\0verClient.Core.csproj" />
+  </ItemGroup>
+
+</Project>
