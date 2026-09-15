@@ -9,6 +9,14 @@ public sealed class InstalledGame
     public string Name { get; set; } = "";
     public string Version { get; set; } = "";
     public string Channel { get; set; } = "latest";
+
+    /// <summary>
+    /// 安装这份游戏时所用清单的 sha256。
+    /// 用来识别"版本号没变但内容变了"的更新；老版本写下的记录里没有这个字段（为 null），
+    /// 此时更新判定会退化成只比版本号。
+    /// </summary>
+    public string? ManifestSha256 { get; set; }
+
     public string InstallDir { get; set; } = "";
     public string Executable { get; set; } = "";
     public List<string> Arguments { get; set; } = [];
@@ -107,6 +115,7 @@ public sealed class StateStore(string stateDirectory)
         Name = result.Name,
         Version = result.Version,
         Channel = result.Channel,
+        ManifestSha256 = result.ManifestSha256,
         InstallDir = result.InstallDir,
         Executable = result.Executable,
         Arguments = [.. result.Arguments],

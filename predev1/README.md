@@ -8,6 +8,9 @@
 >
 > 📦 **要打包出服务端 / 客户端请看 [`docs/guide.html`](docs/guide.html)** ——
 > 使用、编译、部署到云、上架新游戏，以及常见报错。
+>
+> 🎮 **以后加游戏 / 发新版本看 [`docs/ADD-GAME.md`](docs/ADD-GAME.md)** ——
+> 一页纸：打包 → 上传 → 停服换版 → 验证，附坑表和已知限制。
 
 ## 跑起来
 
@@ -108,14 +111,15 @@ dotnet run --project tools\SmokeTest -- --index http://127.0.0.1:8787/index.json
 > 打包脚本**不会删掉** `dist\server\site\` —— 那是你放站点内容的地方，重新打包时会保留。
 
 **迁移到另一台服务器**：拷 `dist\server` 过去 → 双击 `run-server.cmd` → 放行新机器的 8787 端口。
-若 IP 变了，改 `ServerIP.txt` 后重新 `.\publish-testpack.ps1`，再把 `build\site` 传过去
-（清单里是绝对 URL，地址变了必须重打）。
+若 IP 变了，改 `ServerIP.txt` 后重新打包每个游戏（`--base-url` 要跟着换），
+再把 `dist\server\site` 传过去（清单里是绝对 URL，地址变了必须重打）。
 
 详细图文说明见 `docs/index.html`。
 
 ## 当前验证状态
 
-`tools/SmokeTest` 不开界面，直接把整条链路跑穿，**43 项检查全部通过**（加 `--launch-check`）：
+`tools/SmokeTest` 不开界面，直接把整条链路跑穿，**63 项检查全部通过**（基准 57 项；
+加 `--launch-check` 或 `--update-check` 各 +6 项，两个都加是 69 项）：
 
 | 组 | 覆盖内容 |
 |---|---|
@@ -126,6 +130,8 @@ dotnet run --project tools\SmokeTest -- --index http://127.0.0.1:8787/index.json
 | 增量安装 | 二次安装 **下载 0 / 全部复用**（硬链接生效）；staging 与旧目录均已清理 |
 | 进度对象格式化 | `Fraction`/`Percent` 边界、全零不除零、`DetailText`/`EtaText`/`HumanBytes`/`HumanSpeed`/`HumanEta` 不抛异常（这些代码跑在 UI 线程上） |
 | 启动进程 | `.cmd` 入口被正确路由到 `cmd.exe`；真实进程能起来、能持续运行、能被结束 |
+| 更新判定 | 版本更高/更低/相同、**版本号没变但清单哈希变了**、老记录没有 sha、缺 url/sha256、`minVersion` 强制更新的边界 |
+| 启动器自替换 | 真的复制自己、真的等一个占着目标 exe 的进程退出，断言字节被替换**且发生在旧进程退出之后** |
 
 断点续传是**实测**过的，不是"设计上支持"：
 
@@ -141,6 +147,17 @@ dotnet run --project tools\SmokeTest -- --index http://127.0.0.1:8787/index.json
 
 **界面部分**：`0verClient.exe --selfcheck` 会把主窗口的全部 XAML 和游戏卡片模板真正实例化一遍
 再退出（退出码 0 = 通过）。它专门抓**编译期看不见的绑定模式错误**。
+
+改完 `Theme.xaml` / `MainWindow.xaml` 之后还可以真的**看一眼**：
+
+```powershell
+0verClient.exe --screenshot build\ui-shot.png
+```
+
+它会把主窗口连同一张**被强制成悬停状态**的卡片渲染成 PNG 再退出。
+描边被裁、间距不对这类问题只有真实渲染才暴露，而自检只能证明"没抛异常"。
+（悬停态是直接设模板部件的动画终值实现的，所以改 `Theme.xaml` 里的动画数值时，
+`App.xaml.cs` 的 `ForceHoverOnFirstCard` 要跟着改。）
 
 这个自检做过 **A/B 对照实验**：把 bug 改回去后两个版本都编译 0 error，但自检在修好的版本返回 `0`、
 在坏版本返回 `1` 并抛出 `XamlParseException`。所以它是真的在测东西，不是走过场。
@@ -166,6 +183,8 @@ dotnet run --project tools\SmokeTest -- --index http://127.0.0.1:8787/index.json
 0verClient.slnx              解决方案（.NET 10 新格式；给 Visual Studio 用）
 run-demo.ps1                 一键 demo（刻意纯 ASCII，见文件头注释）
 build-dist.ps1               打包服务器端与客户端（框架依赖 / 自包含 / 便携 三种模式）
+docs/START-HERE.md           从零到跑通的完整流程（第一次用看它）
+docs/ADD-GAME.md             以后加游戏 / 发新版本的标准流程（日常看它）
 docs/SERVER.md               把游戏部署到服务器（nginx / COS / 防火墙 / 备案）
 docs/guide.html               使用与开发指南（第一部分用户 / 第二部分开发者）
 src/0verClient.Core/         引擎：不依赖 UI，可无头测试
@@ -219,7 +238,8 @@ docs/index.html              HTML 使用说明，可直接放进站点根目录�
 | 并发 | 逐文件串行 | 文件级并发 4–8 |
 | 封面 | 渐变占位 | 真实封面图 + 本地缓存 |
 | 解压 | 不打包，直接分发文件 | 文件数 >5000 时引入 zip 打包组 |
-| 启动器自更新 | 无 | `latest.json` + 签名，静态托管 |
+| 启动器自更新 | **已实现**：读站点根的 `latest.json`，一键下载校验后自动替换重启（**未验签**） | 给 `latest.json` 加 ECDsa 签名 |
+| 游戏更新 | **已实现**：卡片显示「可更新 vX → vY」，点击增量更新（未变的文件硬链接复用） | 更新前备份安装目录里的存档 |
 | 发布 | 仅 Debug 构建 | 框架依赖发布约 1 MB，但玩家机器需要 .NET 10 桌面运行时；备选 self-contained（约 150 MB） |
 
 **三条编辑本仓库时要守的规矩**（都是踩过坑总结的）：

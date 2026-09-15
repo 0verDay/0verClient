@@ -36,9 +36,32 @@ build/
 ServerIP.txt
 
 # ============================================================
+# 示例与游戏包体
+# ============================================================
+# samples/ 下混着两类完全不同的东西：
+#   源码示例（DemoGame / TestPack）—— 属于仓库，run-demo.ps1 和
+#     publish-testpack.ps1 都依赖它们，必须保留
+#   游戏包体（几百 MB 的 exe / 资源）—— 放进 samples\ 只是为了打包方便，
+#     绝不提交
+#
+# 所以这里刻意写 samples/* 而不是 samples/ ：
+# 一旦整个目录被排除，git 就不再进入它，下面的 ! 反排除会**静默失效**
+# （gitignore 的硬性限制：父目录被排除后无法再反排除其中的文件）。
+#
+# ⚠️ 以后新增"源码型"示例，要在下面补一行 !samples/<名字>/，
+#    否则 git 会安静地忽略它。确认被忽略与否：git check-ignore -v <路径>
+samples/*
+!samples/DemoGame/
+!samples/TestPack/
+
+# ============================================================
 # 说明
 # ============================================================
 # build/ 和 dist/ 都是产物：
-#   build/  由 publish-testpack.ps1 / Publish.exe 生成（站点 + 服务器脚本副本）
-#   dist/   由 build-dist.ps1 生成（可分发的服务器端与客户端，含内嵌运行时，可到 170 MB）
+#   build/  由 publish-testpack.ps1 / Publish.exe 生成（测试站点 + 服务器脚本副本）
+#   dist/   由 build-dist.ps1 生成（可分发的服务器端与客户端）
+#           dist\server\site\ 里还会放 Publish.exe 产出的正式站点内容
 # 两者都可以只靠源码重新生成，所以不进版本库。
+#
+# 游戏包体不进版本库，但**必须**进 dist\server\site\ —— 那是要传上服务器的东西。
+# 完整流程见 docs/ADD-GAME.md。

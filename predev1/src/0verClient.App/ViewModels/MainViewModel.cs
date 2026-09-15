@@ -6,6 +6,7 @@ using System.Windows.Input;
 using OverClient.App.Mvvm;
 using OverClient.App.Services;
 using OverClient.Core;
+using OverClient.Core.Update;
 using OverClient.Core.Util;
 
 namespace OverClient.App.ViewModels;
@@ -20,6 +21,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private bool _allowInsecureHttp;
     private string _allowedHosts = "";
     private string _lastError = "";
+    private LauncherUpdateDecision _launcherUpdate = LauncherUpdateDecision.None;
+    private bool _isUpdatingLauncher;
+    private string _launcherProgress = "";
 
     public MainViewModel()
     {
@@ -31,6 +35,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         SaveSettingsCommand = new RelayCommand(_ => SaveSettings());
         OpenDataFolderCommand = new RelayCommand(_ => OpenPath(AppPaths.Root));
         OpenGamesFolderCommand = new RelayCommand(_ => OpenPath(_service.GamesRoot));
+        UpdateLauncherCommand = new AsyncRelayCommand(_ => UpdateLauncherAsync(), _ => CanApplyLauncherUpdate);
 
         _service.Launcher.GameExited += OnGameExited;
     }
@@ -43,6 +48,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand SaveSettingsCommand { get; }
     public ICommand OpenDataFolderCommand { get; }
     public ICommand OpenGamesFolderCommand { get; }
+    public ICommand UpdateLauncherCommand { get; }
 
     public int NavIndex
     {
@@ -143,6 +149,45 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public string Channel => _service.Settings.Channel;
     public string LauncherVersion => AppInfo.Version;
 
+    // ---------------------------------------------------------------
+    // 启动器自更新
+    // ---------------------------------------------------------------
+
+    public bool IsLauncherUpdateAvailable => _launcherUpdate.Available;
+
+    public bool IsUpdatingLauncher => _isUpdatingLauncher;
+
+    /// <summary>没有可校验的下载地址时不允许一键更新，只提示。</summary>
+    public bool CanApplyLauncherUpdate => _launcherUpdate.CanAutoApply && !_isUpdatingLauncher;
+
+    public string LauncherUpdateActionText => _isUpdatingLauncher ? "更新中…" : "立即更新";
+
+    public string LauncherUpdateText
+    {
+        get
+        {
+            if (!_launcherUpdate.Available)
+                return "";
+
+            var text = _isUpdatingLauncher
+                ? $"正在下载启动器 v{_launcherUpdate.Version}…"
+                : _launcherUpdate.Mandatory
+                    ? $"当前版本 {AppInfo.Version} 已不受支持，必须更新到 v{_launcherUpdate.Version}"
+                    : $"发现启动器新版本 v{_launcherUpdate.Version}（当前 {AppInfo.Version}）";
+
+            if (_isUpdatingLauncher && !string.IsNullOrEmpty(_launcherProgress))
+                text += $" · {_launcherProgress}";
+
+            if (!_launcherUpdate.CanAutoApply && !_isUpdatingLauncher)
+                text += " · 该内容源没有提供可校验的下载地址，请手动更新";
+
+            if (!string.IsNullOrWhiteSpace(_launcherUpdate.Notes))
+                text += $"\n{_launcherUpdate.Notes}";
+
+            return text;
+        }
+    }
+
     public async Task InitializeAsync() => await RefreshAsync().ConfigureAwait(true);
 
     /// <summary>
@@ -179,6 +224,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             var index = await _service.LoadIndexAsync().ConfigureAwait(true);
 
+            // 顺手检查启动器自身有没有新版。失败/站点没有 latest.json 都只是"没有更新"，
+            // 绝不能让游戏库刷新跟着失败 —— 所以它内部自己吞掉所有异常。
+            await CheckLauncherUpdateAsync().ConfigureAwait(true);
+
             Games.Clear();
             foreach (var entry in index.Games)
             {
@@ -208,6 +257,92 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             Raise(nameof(EmptyStateTitle));
             Raise(nameof(EmptyStateDetail));
         }
+    }
+
+    private async Task CheckLauncherUpdateAsync()
+    {
+        try
+        {
+            var release = await _service.LoadLauncherReleaseAsync().ConfigureAwait(true);
+            _launcherUpdate = UpdateCheck.CheckLauncher(AppInfo.Version, release);
+
+            if (_launcherUpdate.Available)
+            {
+                Log.Info($"发现启动器新版本 {_launcherUpdate.Version}"
+                       + $"（强制={_launcherUpdate.Mandatory}，可一键更新={_launcherUpdate.CanAutoApply}）");
+            }
+        }
+        catch (Exception ex)
+        {
+            // 检查更新本身永远不该是致命错误。
+            _launcherUpdate = LauncherUpdateDecision.None;
+            Log.Warn($"检查启动器更新失败（按无更新处理）：{ex.Message}");
+        }
+        finally
+        {
+            RaiseLauncherUpdateState();
+        }
+    }
+
+    /// <summary>
+    /// 一键更新启动器：下载 → 校验 sha256 → 交给新版接管 → 自己退出。
+    ///
+    /// 顺序很重要：必须先启动新版、再退出。反过来的话新版启动时目标 exe 仍被占用，
+    /// 它要白白等到超时才发现可以替换。
+    /// </summary>
+    private async Task UpdateLauncherAsync()
+    {
+        if (!CanApplyLauncherUpdate)
+            return;
+
+        _isUpdatingLauncher = true;
+        _launcherProgress = "";
+        RaiseLauncherUpdateState();
+
+        try
+        {
+            var progress = new Progress<LauncherDownloadProgress>(p =>
+            {
+                _launcherProgress = $"{p.DetailText} {p.Percent}%";
+                Raise(nameof(LauncherUpdateText));
+            });
+
+            var staged = await _service.DownloadLauncherUpdateAsync(_launcherUpdate, progress).ConfigureAwait(true);
+
+            StatusText = $"启动器 v{_launcherUpdate.Version} 已下载并校验，正在重启完成替换…";
+
+            LauncherUpdater.HandOver(staged, Environment.ProcessId);
+
+            Application.Current?.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            _isUpdatingLauncher = false;
+            _launcherProgress = "";
+            StatusText = $"启动器更新失败：{ex.Message}";
+            Log.Error("启动器自更新失败", ex);
+            RaiseLauncherUpdateState();
+
+            MessageBox.Show(
+                $"启动器更新失败：\n\n{ex.Message}\n\n当前版本继续可用，日志：{AppPaths.Logs}",
+                "0verClient · 更新失败",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    private void RaiseLauncherUpdateState()
+    {
+        Raise(nameof(IsLauncherUpdateAvailable));
+        Raise(nameof(IsUpdatingLauncher));
+        Raise(nameof(CanApplyLauncherUpdate));
+        Raise(nameof(LauncherUpdateActionText));
+        Raise(nameof(LauncherUpdateText));
+
+        // WPF 不会自己发现 CanApplyLauncherUpdate 变了 —— 不显式通知的话，
+        // 更新检查完成之后按钮仍然是灰的。
+        if (UpdateLauncherCommand is AsyncRelayCommand command)
+            command.RaiseCanExecuteChanged();
     }
 
     private void SyncDownloads()

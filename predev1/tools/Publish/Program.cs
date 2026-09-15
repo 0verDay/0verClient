@@ -33,29 +33,30 @@ internal static class Program
         var siteRoot = Arg(args, "--out");
         var baseUrl = Arg(args, "--base-url")?.TrimEnd('/');
 
-        if (gameDir is null || id is null || siteRoot is null || baseUrl is null)
+        // 启动器本体（可选）。给了就顺带把 latest.json 写进站点根，
+        // 客户端启动时会读它来做"启动器自更新"检查。
+        var launcherPath = Arg(args, "--launcher");
+
+        if (siteRoot is null || baseUrl is null)
         {
-            Console.Error.WriteLine("ERROR: --game, --id, --out and --base-url are all required.");
+            Console.Error.WriteLine("ERROR: --out and --base-url are required.");
             Console.Error.WriteLine();
             Usage();
             return 1;
         }
 
-        if (!Directory.Exists(gameDir))
+        if ((gameDir is null) != (id is null))
         {
-            Console.Error.WriteLine($"ERROR: game directory not found: {gameDir}");
+            Console.Error.WriteLine("ERROR: --game and --id must be given together (they identify one game).");
             return 1;
         }
 
-        string safeId;
-        try
+        if (gameDir is null && launcherPath is null)
         {
-            // 复用启动器同一套校验：id 会变成目录名，绝不会让它带分隔符或保留设备名。
-            safeId = SafePath.SanitizeSegment(id);
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"ERROR: invalid --id: {ex.Message}");
+            Console.Error.WriteLine("ERROR: nothing to publish.");
+            Console.Error.WriteLine("       Pass --game/--id to publish a game, and/or --launcher to publish the launcher itself.");
+            Console.Error.WriteLine();
+            Usage();
             return 1;
         }
 
@@ -74,6 +75,46 @@ internal static class Program
             Console.WriteLine();
         }
 
+        // ---- 0. 启动器本体（可选，先做）----
+        if (launcherPath is not null)
+        {
+            var launcherCode = await PublishLauncherAsync(launcherPath, siteRoot, baseUrl, args);
+            if (launcherCode != 0)
+                return launcherCode;
+
+            // 只发启动器，没有游戏要处理 —— 到此为止。
+            if (gameDir is null)
+            {
+                Console.WriteLine();
+                Console.WriteLine("Next steps:");
+                Console.WriteLine($"  copy the site root to your server : {Path.GetFullPath(siteRoot)}");
+                Console.WriteLine("  the launcher checks <index dir>/latest.json on every library refresh.");
+                return 0;
+            }
+        }
+
+        // 走到这里 --game / --id 一定齐全（launcher-only 的情况上面已经 return 了）。
+        var game = gameDir!;
+        var gameId = id!;
+
+        if (!Directory.Exists(game))
+        {
+            Console.Error.WriteLine($"ERROR: game directory not found: {game}");
+            return 1;
+        }
+
+        string safeId;
+        try
+        {
+            // 复用启动器同一套校验：id 会变成目录名，绝不会让它带分隔符或保留设备名。
+            safeId = SafePath.SanitizeSegment(gameId);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"ERROR: invalid --id: {ex.Message}");
+            return 1;
+        }
+
         var name = Arg(args, "--name") ?? safeId;
         var version = Arg(args, "--version") ?? "1.0.0";
         var channel = Arg(args, "--channel") ?? "latest";
@@ -88,10 +129,10 @@ internal static class Program
         var copyPlan = new List<(string Source, string Relative)>();
         var skipped = 0;
 
-        foreach (var source in Directory.EnumerateFiles(gameDir, "*", SearchOption.AllDirectories)
+        foreach (var source in Directory.EnumerateFiles(game, "*", SearchOption.AllDirectories)
                      .OrderBy(p => p, StringComparer.Ordinal))
         {
-            var relative = Path.GetRelativePath(gameDir, source).Replace('\\', '/');
+            var relative = Path.GetRelativePath(game, source).Replace('\\', '/');
 
             if (!keepPdb && relative.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase))
             {
@@ -130,7 +171,7 @@ internal static class Program
 
         if (entries.Count == 0)
         {
-            Console.Error.WriteLine($"ERROR: no publishable files found under {gameDir}");
+            Console.Error.WriteLine($"ERROR: no publishable files found under {game}");
             return 1;
         }
 
@@ -270,6 +311,69 @@ internal static class Program
         return 0;
     }
 
+    /// <summary>
+    /// 把启动器本体发布进站点，并写出站点根下的 <c>latest.json</c>。
+    ///
+    /// 为什么不塞进 index.json：两者生命周期不同 —— index.json 每次加游戏都变，
+    /// 而 latest.json 只在启动器重新打包时才变。分开之后，客户端可以用很小的代价
+    /// 单独判断"我自己要不要更新"。
+    ///
+    /// 文件放 <c>client\</c>，latest.json 放站点根、与 index.json 同级：
+    /// 客户端用相对路径推导（索引放子目录时也跟着放子目录），不需要额外配置。
+    /// </summary>
+    private static async Task<int> PublishLauncherAsync(string launcherPath, string siteRoot, string baseUrl, string[] args)
+    {
+        if (!File.Exists(launcherPath))
+        {
+            Console.Error.WriteLine($"ERROR: launcher exe not found: {launcherPath}");
+            return 1;
+        }
+
+        var version = Arg(args, "--launcher-version");
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            Console.Error.WriteLine("ERROR: --launcher-version is required together with --launcher.");
+            return 1;
+        }
+
+        var fileName = Path.GetFileName(launcherPath);
+        var clientDir = Path.Combine(siteRoot, "client");
+        Directory.CreateDirectory(clientDir);
+
+        var destination = Path.Combine(clientDir, fileName);
+        File.Copy(launcherPath, destination, overwrite: true);
+
+        // 对**写出去的那份字节**算哈希，而不是对源文件 —— 客户端下载到的必须是这个哈希。
+        var sha = await Hashing.Sha256FileAsync(destination);
+        var size = new FileInfo(destination).Length;
+
+        var release = new LauncherRelease
+        {
+            SchemaVersion = LauncherRelease.CurrentSchema,
+            Version = version,
+            MinVersion = Arg(args, "--launcher-min"),
+            Url = $"{baseUrl}/client/{fileName}",
+            Sha256 = sha,
+            Size = size,
+            Notes = Arg(args, "--launcher-notes"),
+            PublishedAt = DateTimeOffset.UtcNow
+        };
+
+        var releasePath = Path.Combine(siteRoot, "latest.json");
+        await File.WriteAllBytesAsync(releasePath, Encoding.UTF8.GetBytes(JsonDefaults.Serialize(release)));
+
+        Console.WriteLine("Launcher published");
+        Console.WriteLine();
+        Console.WriteLine($"  version      : {version}"
+                          + (string.IsNullOrWhiteSpace(release.MinVersion) ? "" : $"   (below {release.MinVersion} it is mandatory)"));
+        Console.WriteLine($"  payload      : client/{fileName} ({Hashing.HumanBytes(size)})");
+        Console.WriteLine($"  sha256       : {sha}");
+        Console.WriteLine($"  latest.json  : {Path.GetFullPath(releasePath)}");
+        Console.WriteLine();
+
+        return 0;
+    }
+
     private static bool IsExecutable(string relativePath)
     {
         var extension = Path.GetExtension(relativePath);
@@ -286,12 +390,22 @@ internal static class Program
 
         Usage:
           Publish --game <folder> --id <gameId> --out <siteDir> --base-url <publicUrl> [options]
+          Publish --launcher <exe> --launcher-version <ver> --out <siteDir> --base-url <publicUrl>
+          (both at once is allowed: the launcher goes out first, then the game)
 
         Required:
-          --game <folder>        folder containing the game files (recursively)
-          --id <gameId>          stable id, also used as the folder name, e.g. testpack
           --out <siteDir>        output site root (created if missing; safe to re-run)
           --base-url <url>       public URL prefix of <siteDir>, e.g. https://cdn.example.com/0verclient
+
+        Publish a GAME (these three go together):
+          --game <folder>        folder containing the game files (recursively)
+          --id <gameId>          stable id, also used as the folder name, e.g. testpack
+
+        Publish the LAUNCHER itself (optional, writes <siteDir>/latest.json):
+          --launcher <exe>             the built 0verClient.exe
+          --launcher-version <text>    version to advertise, e.g. 0.2.0
+          --launcher-min <text>        below this version the update is mandatory
+          --launcher-notes <text>      one-line release note shown in the update banner
 
         Optional:
           --name <text>          display name (default: same as --id)
@@ -309,8 +423,12 @@ internal static class Program
 
         Example:
           Publish --game samples\TestPack --id testpack --name "Server Test Pack" ^
-                  --version 1.0.0 --base-url http://1.2.3.4:8787 --out build\site ^
+                  --version 1.0.0 --base-url http://1.2.3.4:8787 --out dist\server\site ^
                   --summary "Downloaded from my Tencent Cloud server"
+
+          Publish --launcher dist\client\0verClient.exe --launcher-version 0.2.0 ^
+                  --launcher-min 0.1.0 --launcher-notes "Fixed the update check" ^
+                  --base-url http://1.2.3.4:8787 --out dist\server\site
 
         Re-running with the same --id updates that game and keeps the others intact.
         """);

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace OverClient.Core.Manifest;
 
 /// <summary>
@@ -29,6 +31,13 @@ public sealed class GameEntry
         Channels.TryGetValue(name, out var entry) ? entry : null;
 
     public ChannelEntry? DefaultChannel() => Channel("latest") ?? Channels.Values.FirstOrDefault();
+
+    /// <summary>
+    /// 按用户设置里的通道取指针，该通道不存在时退回默认通道。
+    /// 卡片和安装流程必须用同一个方法取，否则会出现"卡片显示 beta、实际装的是 latest"。
+    /// </summary>
+    public ChannelEntry? ChannelFor(string? channel) =>
+        string.IsNullOrWhiteSpace(channel) ? DefaultChannel() : Channel(channel) ?? DefaultChannel();
 }
 
 public sealed class ChannelEntry
@@ -69,6 +78,16 @@ public sealed class GameManifest
 
     /// <summary>可选的 manifest 签名（ECDsa P-256，DER 编码）。demo 阶段允许为空。</summary>
     public ManifestSignature? Signature { get; set; }
+
+    /// <summary>
+    /// 这份清单 JSON 文件自身的 sha256。由 <see cref="ManifestService"/> 在校验通过后填上。
+    ///
+    /// 刻意不参与序列化：它描述的是文件本身的哈希，写回文件里既无意义也会自我指涉。
+    /// 用途是判断"版本号没变但内容变了" —— 发布者忘记改版本号是常态，
+    /// 只看版本号会让这类更新永远发不出去。
+    /// </summary>
+    [JsonIgnore]
+    public string? ManifestSha256 { get; set; }
 
     public long TotalBytes => Files.Sum(f => f.Size);
 
@@ -112,4 +131,37 @@ public sealed class ManifestSignature
     public string Algorithm { get; set; } = "ECDSA-P256-SHA256";
     public string KeyId { get; set; } = "";
     public string Value { get; set; } = "";
+}
+
+/// <summary>
+/// 站点根目录下的 <c>latest.json</c>：描述"当前发布的启动器版本"。
+///
+/// 为什么不复用游戏的 manifest：启动器自己不是游戏，不走安装器那条
+/// （staging → 原子切换 → 硬链接复用）的路，它要替换的是**正在运行的自己**。
+/// 所以它是站点根下一份独立的小 JSON，缺失时只表示"这个内容源不提供启动器更新"，
+/// 不是错误 —— 老站点没有这个文件照样能正常用。
+/// </summary>
+public sealed class LauncherRelease
+{
+    public const int CurrentSchema = 1;
+
+    public int SchemaVersion { get; set; } = CurrentSchema;
+
+    /// <summary>最新启动器版本号，例如 0.2.0。</summary>
+    public string Version { get; set; } = "";
+
+    /// <summary>当前版本低于它就必须更新。留空表示只提示、不强制。</summary>
+    public string? MinVersion { get; set; }
+
+    /// <summary>新启动器本体的下载地址（通常指向站点里的 client\0verClient.exe）。</summary>
+    public string? Url { get; set; }
+
+    /// <summary>下载后必须校验通过才会被启用。为空则拒绝自动更新。</summary>
+    public string? Sha256 { get; set; }
+
+    public long Size { get; set; }
+
+    public string? Notes { get; set; }
+
+    public DateTimeOffset? PublishedAt { get; set; }
 }

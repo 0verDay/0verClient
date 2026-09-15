@@ -405,7 +405,7 @@ docs/                        文档</code></pre>
   <tr><th></th><th>打包<b>程序</b></th><th>打包<b>内容</b></th></tr>
   <tr><td>是什么</td><td>把源码编译成 exe</td><td>把游戏目录变成静态站点（索引 + 清单 + 文件）</td></tr>
   <tr><td>命令</td><td><code>.\build-dist.ps1</code></td><td><code>Publish.exe</code> 或 <code>.\publish-testpack.ps1</code></td></tr>
-  <tr><td>产物</td><td><code>dist\server\</code>、<code>dist\client\</code></td><td><code>build\site\</code></td></tr>
+  <tr><td>产物</td><td><code>dist\server\</code>、<code>dist\client\</code></td><td><code>dist\server\site\</code></td></tr>
   <tr><td>拷到哪</td><td>服务端 → 服务器；客户端 → 玩家</td><td>服务器上的 <code>site\</code> 目录</td></tr>
   <tr><td>什么时候做</td><td><b>改了代码之后</b></td><td><b>加了游戏 / 更新版本之后</b></td></tr>
 </table>
@@ -583,10 +583,19 @@ docs/                        文档</code></pre>
 
 <h2 id="d-game">11. 添加新游戏（打包内容）</h2>
 
+<div class="note">
+  <b>输出目录固定用 <code>dist\server\site</code>。</b>
+  这样 <code>dist\server\</code> 就是一个"exe + run-server.cmd + site"的<b>整体可替换文件夹</b>：
+  传到服务器 → 停旧服务 → 跑 <code>run-server.cmd</code>，就完事了。
+  <br>（<code>build\site</code> 是早期文档里的旧位置，仍能用，但要多一步手工把站点挪到服务端目录旁边；
+  而且 <code>publish-testpack.ps1</code> 每次会清空 <code>build\site</code>。）
+  <br>📌 可照抄的完整日常流程：仓库里的 <code>docs/ADD-GAME.md</code>。
+</div>
+
 <h3>11.1 一步到位</h3>
 <pre><code>.\tools\Publish\bin\Debug\net10.0-windows\Publish.exe `
   --game "D:\Games\我的游戏" --id mygame --name "我的游戏" `
-  --version 1.0.0 --base-url http://YOUR_SERVER_IP:8787 --out build\site</code></pre>
+  --version 1.0.0 --base-url http://YOUR_SERVER_IP:8787 --out dist\server\site</code></pre>
 <p><code>--game</code> 指向游戏目录，会把里面的文件<b>递归</b>全部纳入。</p>
 
 <h3>11.2 完整参数</h3>
@@ -614,33 +623,36 @@ docs/                        文档</code></pre>
 新游戏会追加进去，已有的游戏原样保留。游戏可以一个一个加。</p>
 <pre><code>:: 第一个
 Publish.exe --game "D:\Games\A" --id gamea --name "游戏A" --version 1.0.0 `
-  --base-url http://YOUR_SERVER_IP:8787 --out build\site
+  --base-url http://YOUR_SERVER_IP:8787 --out dist\server\site
 
 :: 第二个（游戏A 不受影响）
 Publish.exe --game "D:\Games\B" --id gameb --name "游戏B" --version 1.0.0 `
-  --base-url http://YOUR_SERVER_IP:8787 --out build\site</code></pre>
+  --base-url http://YOUR_SERVER_IP:8787 --out dist\server\site</code></pre>
 <p>用<b>同一个 <code>--id</code></b> 再跑一次则是<b>更新</b>那个游戏（发布新版本）。</p>
 
 <h3>11.4 发布新版本 / 通道</h3>
 <pre><code>:: 把 mygame 更新到 1.1.0
 Publish.exe --game "D:\Games\我的游戏" --id mygame --name "我的游戏" `
   --version 1.1.0 --notes "修了几个 bug" `
-  --base-url http://YOUR_SERVER_IP:8787 --out build\site
+  --base-url http://YOUR_SERVER_IP:8787 --out dist\server\site
 
 :: 发到 beta 通道，玩家只有把设置里的通道改成 beta 才会拿到
 Publish.exe --game "D:\Games\我的游戏-test" --id mygame --version 1.2.0-beta `
-  --channel beta --base-url http://YOUR_SERVER_IP:8787 --out build\site</code></pre>
+  --channel beta --base-url http://YOUR_SERVER_IP:8787 --out dist\server\site</code></pre>
 <p>一个游戏可以有多个<b>通道</b>（<code>latest</code> / <code>beta</code> …），每个通道各自指向一个版本的清单。
 客户端默认读 <code>latest</code>。</p>
 
 <h3>11.5 站点结构长什么样</h3>
-<pre><code>build\site\
-    index.json                        根索引：有哪些游戏、清单地址 + 清单 sha256
-    games\
-        mygame\
-            manifest.json             文件清单：路径 / 大小 / sha256 / URL、启动方式
-            files\                    游戏文件本身（按原目录结构）
-                ...</code></pre>
+<pre><code>dist\server\
+    0verClient.Server.exe             服务端本体（改了代码才有变化）
+    run-server.cmd                    启动脚本，参数已预填
+    site\
+        index.json                    根索引：有哪些游戏、清单地址 + 清单 sha256
+        games\
+            mygame\
+                manifest.json         文件清单：路径 / 大小 / sha256 / URL、启动方式
+                files\                游戏文件本身（按原目录结构）
+                    ...</code></pre>
 <p>两层清单各有分工，都是<b>唯一真相源</b>，客户端不硬编码任何游戏信息：</p>
 <table>
   <tr><th>文件</th><th>回答什么问题</th><th>变动频率</th></tr>
@@ -650,13 +662,51 @@ Publish.exe --game "D:\Games\我的游戏-test" --id mygame --version 1.2.0-beta
 
 <h3>11.6 新增游戏后的完整流程</h3>
 <ol class="steps">
-  <li>用 <code>Publish.exe</code> 打包进 <code>build\site</code>（加上文）</li>
-  <li>把整个 <code>build\site</code> 传到服务器，覆盖服务器上的 <code>site\</code></li>
+  <li>用 <code>Publish.exe</code> 打包进 <code>dist\server\site</code>（加上文）</li>
+  <li>把 <code>dist\server\site</code> 传到服务器，覆盖服务器上的 <code>site\</code></li>
   <li>玩家点「刷新游戏库」，新游戏就出现了</li>
 </ol>
 <div class="note">
   <b>不需要重新编译服务端。</b>服务端只是把目录用 HTTP 提供出去，站点内容变了它自动就提供新的。
-  也不需要重启服务端进程。
+  也不需要重启服务端进程（但覆盖到一半时正在下载的玩家会拿到坏文件，所以推荐停一下服务再覆盖）。
+</div>
+<div class="note danger">
+  <b>站点为什么要打在 <code>dist\server\site</code> 而不是 <code>build\site</code>：</b>
+  这样 <code>dist\server\</code>（exe + run-server.cmd + site）本身就是一个<b>可以整体替换的文件夹</b>，
+  传到服务器上停旧服务、跑 <code>run-server.cmd</code> 就完事。
+  另外 <code>publish-testpack.ps1</code> 每次会清空 <code>build\site</code>，
+  正式站点放在 <code>dist\server\site</code> 就不会被它误删。
+  <br>完整可照抄的日常流程见仓库里的 <code>docs/ADD-GAME.md</code>。
+</div>
+
+<h3>11.7 发布启动器新版本（客户端自更新）</h3>
+<p>启动器会读站点根目录的 <code>latest.json</code>（与 <code>index.json</code> 同级）来判断自己要不要更新。</p>
+<pre><code>:: 1. 重新打包客户端
+.\build-dist.ps1 -Target client -SelfContained -SingleFile
+
+:: 2. 发布 latest.json（它会自动算 sha256）
+.\tools\Publish\bin\Debug\net10.0-windows\Publish.exe `
+  --launcher dist\client\0verClient.exe --launcher-version 0.2.0 `
+  --launcher-min 0.1.0 --launcher-notes "新增检查更新" `
+  --base-url http://YOUR_SERVER_IP:8787 --out dist\server\site</code></pre>
+<p>玩家下次刷新游戏库时顶部会出现更新横幅，点「立即更新」即可：
+下载 → 校验 sha256 → 启动器自动重启完成替换（新版自己当更新器，路径含中文也没问题）。</p>
+<table>
+  <tr><th>字段</th><th>作用</th></tr>
+  <tr><td><code>version</code></td><td>比玩家本地新 → 出现更新横幅</td></tr>
+  <tr><td><code>minVersion</code></td><td>玩家版本低于它 → 横幅变成"必须更新"</td></tr>
+  <tr><td><code>url</code> / <code>sha256</code> / <code>size</code></td><td>下载地址与校验值。<b>缺 sha256 就只提示、不允许一键更新</b></td></tr>
+  <tr><td><code>notes</code></td><td>显示在横幅上的说明</td></tr>
+</table>
+<p>游戏更新的判定在第 11.6 节：卡片显示「可更新 v1.0.0 → v1.1.0」，按钮变成「更新」，
+点击后只下载变化的文件（未变的用硬链接复用）。</p>
+<div class="note danger">
+  <b>两条容易踩的：</b>
+  <br>1) 一键替换<b>只覆盖 exe 本身</b>，所以它是为「单文件客户端」设计的。
+  <code>-SelfContained -SingleFile</code> 正好是单文件；框架依赖的文件夹版请让玩家重新下载整个文件夹。
+  <br>2) 在这次改动<b>之前</b>发出去的客户端里没有"检查更新"这段代码 —— 它永远看不到
+  <code>latest.json</code>，必须手动发一次新版给现有玩家。
+  <br>可照抄的完整流程见仓库里的 <code>docs/ADD-GAME.md</code>。
 </div>
 
 <h2 id="d-deploy">12. 上传服务端到云服务器</h2>
@@ -666,7 +716,7 @@ Publish.exe --game "D:\Games\我的游戏-test" --id mygame --version 1.2.0-beta
 ────────────────────────────────────────      ─────────────────────────────────
 1. dotnet build / build-dist.ps1              4. 起内容源（服务端 exe 或 serve-site.ps1）
 2. publish-testpack.ps1 / Publish.exe         5. 放行 Windows 防火墙  +  云安全组
-3. 传 dist\server + build\site  ──────────►   6. 验证：浏览器打开 index.json
+3. 传 dist\server（含 site\） ─────────►   6. 验证：浏览器打开 index.json
 </code></pre>
 
 <h3>12.2 一次性：写服务器地址</h3>
@@ -685,7 +735,7 @@ Publish.exe --game "D:\Games\我的游戏-test" --id mygame --version 1.2.0-beta
 :: 路 B：真正要上的游戏
 .\tools\Publish\bin\Debug\net10.0-windows\Publish.exe `
   --game "D:\Games\我的游戏" --id mygame --name "我的游戏" `
-  --version 1.0.0 --base-url http://YOUR_SERVER_IP:8787 --out build\site</code></pre>
+  --version 1.0.0 --base-url http://YOUR_SERVER_IP:8787 --out dist\server\site</code></pre>
 <p><code>publish-testpack.ps1</code> 会读 <code>ServerIP.txt</code> → 编译 Publish → 用正确的
 <code>--base-url</code> 打包 → 把剩下的步骤打印在屏幕上 → 最后探测一次服务器是否已能连上。</p>
 
@@ -780,8 +830,9 @@ Publish.exe --game "D:\Games\我的游戏-test" --id mygame --version 1.2.0-beta
 预设地址会自动写好），他就<b>不需要做任何设置</b>。
 没给预设的话，让他按<a href="#u-server">第 3 节</a>手填地址。</p>
 <p>迁移到另一台服务器：拷 <code>dist\server</code> 过去 → 双击 <code>run-server.cmd</code> →
-放行新机器的 8787。若 IP 变了，改 <code>ServerIP.txt</code> 后重新 <code>publish-testpack.ps1</code>，
-再把 <code>build\site</code> 传过去（<b>清单里是绝对 URL，地址变了必须重打</b>）。</p>
+放行新机器的 8787。若 IP 变了，改 <code>ServerIP.txt</code> 后<b>重新打包每个游戏</b>
+（<code>--base-url</code> 要跟着换），再把 <code>dist\server\site</code> 传过去
+（<b>清单里是绝对 URL，地址变了必须重打</b>）。</p>
 
 <h2 id="d-faq">13. 开发常见问题</h2>
 
@@ -843,7 +894,7 @@ AOT restore 会在 0.6 秒内以 NU1100 失败，快得看不出是「没配源�
 :: ── 打包内容（游戏站点）────────────────────────
 .\publish-testpack.ps1                                       :: 测试包（读 ServerIP.txt）
 Publish.exe --game &lt;目录&gt; --id &lt;id&gt; --name "&lt;名称&gt;" `
-    --version 1.0.0 --base-url http://YOUR_SERVER_IP:8787 --out build\site
+    --version 1.0.0 --base-url http://YOUR_SERVER_IP:8787 --out dist\server\site
 
 :: ── 本地跑 demo ────────────────────────────────
 .\run-demo.ps1
@@ -854,8 +905,11 @@ Publish.exe --game &lt;目录&gt; --id &lt;id&gt; --name "&lt;名称&gt;" `
 powershell -ExecutionPolicy Bypass -File C:\0verclient\serve-site.ps1 -Root C:\0verclient\site -Port 8787 -AddFirewallRule
 
 :: ── 验证 ──────────────────────────────────────
-0verClient.exe --selfcheck                                   :: 界面，0 = 通过
-SmokeTest.exe --index &lt;url&gt; --fresh --verbose --launch-check  :: 引擎 43 项
+0verClient.exe --selfcheck                                   :: 界面 XAML + 卡片模板，0 = 通过
+0verClient.exe --screenshot build\ui-shot.png                :: 渲染成 PNG（含一张强制悬停的卡片）
+SmokeTest.exe --index &lt;url&gt; --fresh --verbose --launch-check  :: 引擎 63 项（含真实启动进程）
+SmokeTest.exe --index &lt;url&gt; --fresh --update-check            :: 引擎 63 项（含真实自替换）
+                                                             :: 两个开关都加 = 69 项
 check-server.ps1（在服务器上）                                 :: 服务器六层
 
 :: ── 清理 ──────────────────────────────────────
@@ -865,7 +919,7 @@ check-server.ps1（在服务器上）                                 :: 服务�
 <div class="note">
   <b>记住这条主线：</b>
   <br><code>build-dist.ps1</code> 打包<b>程序</b> → exe 进服务器 / 发玩家
-  <br><code>Publish.exe</code> / <code>publish-testpack.ps1</code> 打包<b>内容</b> → <code>build\site</code> 进服务器的 <code>site\</code>
+  <br><code>Publish.exe</code> / <code>publish-testpack.ps1</code> 打包<b>内容</b> → <code>dist\server\site</code> 进服务器的 <code>site\</code>
   <br>改了代码重打程序；加了游戏只重打内容。
 </div>
 

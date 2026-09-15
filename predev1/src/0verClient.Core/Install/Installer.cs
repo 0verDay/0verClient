@@ -88,7 +88,8 @@ public sealed record InstallResult(
     List<string> Arguments,
     long TotalBytes,
     int DownloadedFiles,
-    int ReusedFiles);
+    int ReusedFiles,
+    string? ManifestSha256 = null);
 
 /// <summary>
 /// 安装引擎。核心承诺：
@@ -200,7 +201,8 @@ public sealed class Installer(Net.IContentSource source)
                 [.. manifest.Launch.Arguments],
                 bytesTotal,
                 downloaded,
-                reused);
+                reused,
+                manifest.ManifestSha256);
         }
         catch
         {

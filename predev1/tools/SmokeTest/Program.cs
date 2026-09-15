@@ -5,6 +5,7 @@ using OverClient.Core.Install;
 using OverClient.Core.Launch;
 using OverClient.Core.Manifest;
 using OverClient.Core.Net;
+using OverClient.Core.Update;
 using OverClient.Core.Util;
 
 namespace OverClient.SmokeTest;
@@ -26,6 +27,38 @@ internal static class Program
     private static async Task<int> Main(string[] args)
     {
         Console.OutputEncoding = Encoding.UTF8;
+
+        // ---- 启动器自更新的两个"扮演"模式 ----
+        //
+        // 这段放在最前面，而且刻意做在 SmokeTest 里而不是新建一个工程：
+        // 要验证替换逻辑，必须有一个**能被复制、能被重新拉起的真 exe**，
+        // 而 SmokeTest 本身就是。Core 里的 LauncherUpdater 被两边共用，
+        // 所以这里跑通的就是启动器里跑的同一份代码。
+
+        // 扮演"新版启动器"：被旧版用 --apply-update 拉起，完成替换。
+        var apply = LauncherUpdater.ParseApplyArgs(args);
+        if (apply is not null)
+        {
+            Log.Init();
+            return LauncherUpdater.ApplyUpdate(apply.Value.TargetExe, apply.Value.ParentPid, TimeSpan.FromSeconds(20));
+        }
+
+        // 扮演"旧版本仍在运行"：占住自己的 exe 不放，用来验证更新器真的会等。
+        if (GetArg(args, "--sleep") is { } secondsText && int.TryParse(secondsText, out var seconds))
+        {
+            Console.WriteLine($"hold-exe pid={Environment.ProcessId} for {seconds}s");
+            Thread.Sleep(TimeSpan.FromSeconds(seconds));
+            return 0;
+        }
+
+        // 替换完成后目标会被重新拉起 —— 那个子进程继承了这个环境变量，立刻退出，
+        // 免得它在无人看管的情况下真的跑一遍完整自检。
+        if (Environment.GetEnvironmentVariable("OVERCLIENT_UPDATETEST_RELAUNCH") == "1")
+        {
+            Console.WriteLine("RELAUNCHED-BY-UPDATER");
+            return 0;
+        }
+
         Log.Init();
 
         var indexUrl = GetArg(args, "--index") ?? "http://127.0.0.1:8787/index.json";
@@ -101,6 +134,16 @@ internal static class Program
         Check($"清单可加载（{manifest.Name} {manifest.Version}，{manifest.Files.Count} 个文件，{Hashing.HumanBytes(manifest.TotalBytes)}）", manifest.Files.Count > 0);
         Check("清单哈希已被校验", !string.IsNullOrWhiteSpace(entry.DefaultChannel()?.ManifestSha256));
 
+        // latest.json 是**可选**文件：站点提供就得解析出来，不提供就必须安静地降级为 null。
+        // 它绝不能让"刷新游戏库"失败 —— 所以两条路都要在这里钉一次。
+        var release = await manifests.LoadLauncherReleaseAsync(indexUrl);
+
+        if (release is null)
+            Check("站点没有 latest.json → 安静降级为「无更新」，不抛异常", true);
+        else
+            Check($"latest.json 可读（站点最新启动器 v{release.Version}，{Hashing.HumanBytes(release.Size)}）",
+                !string.IsNullOrWhiteSpace(release.Version) && !string.IsNullOrWhiteSpace(release.Sha256));
+
         Console.WriteLine();
         Console.WriteLine("[3] 首次安装");
 
@@ -157,11 +200,213 @@ internal static class Program
         }
 
         Console.WriteLine();
+        Console.WriteLine("[7] 更新判定（决定玩家到底能不能拿到新版本）");
+        CheckUpdateLogic(entry, second);
+
+        if (args.Contains("--update-check", StringComparer.OrdinalIgnoreCase))
+        {
+            Console.WriteLine();
+            Console.WriteLine("[8] 启动器自替换（真的拷自己、真的等旧进程退出）");
+            CheckLauncherSelfReplace();
+        }
+        else
+        {
+            Console.WriteLine();
+            Console.WriteLine("[8] 已跳过启动器自替换检查（加 --update-check 会真的做一次替换）");
+        }
+
+        Console.WriteLine();
         Console.WriteLine(_failures == 0
             ? $"全部通过（{_checks} 项检查）"
             : $"{_failures} / {_checks} 项检查失败");
 
         return _failures == 0 ? 0 : 1;
+    }
+
+    /// <summary>
+    /// 更新判定。前半段是纯逻辑（不需要网络），后半段拿**刚才真实装出来的**记录去对真实索引。
+    ///
+    /// 为什么值得单独一段：这条逻辑错了的症状是"我明明重传了，玩家却一直不更新"，
+    /// 在界面上完全看不出哪里不对，只能靠这些边界情况挡住。
+    /// </summary>
+    private static void CheckUpdateLogic(GameEntry entry, InstallResult installed)
+    {
+        var record = new InstalledGame { GameId = "g", Version = "1.0.0", ManifestSha256 = "AAA" };
+
+        Check("同版本同哈希 → 无更新", !UpdateCheck.IsGameUpdateAvailable(record, Channel("1.0.0", "AAA")));
+        Check("版本更高 → 有更新", UpdateCheck.IsGameUpdateAvailable(record, Channel("1.0.1", "AAA")));
+        Check("版本跨段更高 → 有更新", UpdateCheck.IsGameUpdateAvailable(record, Channel("2.0.0", "AAA")));
+        Check("本地版本更高 → 无更新（不倒退）", !UpdateCheck.IsGameUpdateAvailable(record, Channel("0.9.0", "BBB")));
+
+        // 这一条是这次改动的核心理由：发布者忘记改版本号时，玩家仍然拿得到新内容。
+        Check("同版本但清单哈希变了 → 有更新", UpdateCheck.IsGameUpdateAvailable(record, Channel("1.0.0", "BBB")));
+
+        // 老版本写下的 state 文件里没有 sha，此时必须退化成"只比版本号"，而不是误报成永远有更新。
+        var legacy = new InstalledGame { GameId = "g", Version = "1.0.0", ManifestSha256 = null };
+        Check("老记录没有 sha → 同版本不误报", !UpdateCheck.IsGameUpdateAvailable(legacy, Channel("1.0.0", "BBB")));
+
+        Check("尚未安装 → 不走更新（走安装）", !UpdateCheck.IsGameUpdateAvailable(null, Channel("1.0.0", "AAA")));
+        Check("索引里没有可用通道 → 无更新", !UpdateCheck.IsGameUpdateAvailable(record, null));
+
+        // ---- 启动器自身 ----
+        Check("站点没有 latest.json → 无更新", !UpdateCheck.CheckLauncher("0.1.0", null).Available);
+        Check("站点版本与当前相同 → 无更新", !UpdateCheck.CheckLauncher("0.2.0", Release("0.2.0", null)).Available);
+        Check("站点版本比当前旧 → 无更新", !UpdateCheck.CheckLauncher("0.2.0", Release("0.1.0", null)).Available);
+        Check("版本号为空 → 无更新", !UpdateCheck.CheckLauncher("0.1.0", Release("", null)).Available);
+
+        var newer = UpdateCheck.CheckLauncher("0.1.0", Release("0.2.0", null));
+        Check("站点版本更新 → 有更新且非强制", newer.Available && !newer.Mandatory);
+        Check("有 url + sha256 → 允许一键更新", newer.CanAutoApply);
+
+        var mandatory = UpdateCheck.CheckLauncher("0.1.0", Release("0.3.0", "0.2.0"));
+        Check("当前低于 minVersion → 强制更新", mandatory.Available && mandatory.Mandatory);
+
+        var atMin = UpdateCheck.CheckLauncher("0.2.0", Release("0.3.0", "0.2.0"));
+        Check("当前正好等于 minVersion → 不强制", atMin.Available && !atMin.Mandatory);
+
+        var noHash = UpdateCheck.CheckLauncher("0.1.0", Release("0.2.0", null, sha: null));
+        Check("缺少 sha256 → 禁止一键更新，只提示", noHash.Available && !noHash.CanAutoApply);
+
+        // ---- 真实链路：刚装完的游戏，对着同一份索引不应该报"有更新" ----
+        var stateDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(installed.InstallDir)!)!, "state");
+        var store = new StateStore(stateDir);
+        store.Save(store.FromResult(installed));
+        var reloaded = store.Get(installed.GameId);
+
+        Check("安装记录里写下了清单 sha256", !string.IsNullOrWhiteSpace(reloaded?.ManifestSha256));
+        Check("刚装完 → 立刻检查不会误报有更新",
+            !UpdateCheck.IsGameUpdateAvailable(reloaded, entry.ChannelFor("latest")));
+    }
+
+    private static ChannelEntry Channel(string version, string? manifestSha) => new()
+    {
+        Version = version,
+        ManifestSha256 = manifestSha,
+        ManifestUrl = "http://example.invalid/games/g/manifest.json"
+    };
+
+    private static LauncherRelease Release(string version, string? minVersion, string? sha = "DEADBEEF") => new()
+    {
+        SchemaVersion = LauncherRelease.CurrentSchema,
+        Version = version,
+        MinVersion = minVersion,
+        Url = "http://example.invalid/client/0verClient.exe",
+        Sha256 = sha,
+        Size = 1234
+    };
+
+    /// <summary>
+    /// 端到端验证"新版启动器替换旧版"这条路径。
+    ///
+    /// 拓扑必须和真实更新**完全一致**，否则测的就是别的东西：
+    ///   installed\  ——  "已安装的旧版本"，它正在运行（所以占着自己的 exe）
+    ///   incoming\   ——  "新版"，从另一个目录被拉起，去替换 installed 里的那个
+    ///
+    /// 注意两件事：
+    ///   1) 两个目录都要放**完整输出**，不能只拷 exe ——
+    ///      这些 exe 是 apphost，旁边没有同名 dll 就起不来（第一次写这个测试就踩了）；
+    ///   2) 改脏的必须是 installed 里那个，因为"替换是否真的发生"要靠它区分。
+    ///
+    /// 最关键的断言是耗时：旧进程还活着时 Windows 不允许覆盖它的 exe，
+    /// 所以更新器**必须**等到 ~4 秒（holder 的存活时间）之后才成功。
+    /// 不等就会立刻失败 —— 这正是自更新最容易写错、且只在真机上暴露的地方。
+    /// </summary>
+    private static void CheckLauncherSelfReplace()
+    {
+        var self = LauncherUpdater.CurrentExecutablePath;
+        var root = Path.Combine(Path.GetTempPath(), "0verclient-updatetest", Guid.NewGuid().ToString("N")[..8]);
+        var installedDir = Path.Combine(root, "installed");
+        var incomingDir = Path.Combine(root, "incoming");
+
+        try
+        {
+            Check("能拿到真实 exe 路径（不是单文件解包的临时目录）",
+                File.Exists(self) && Path.GetExtension(self).Equals(".exe", StringComparison.OrdinalIgnoreCase));
+
+            CopyDirectory(Path.GetDirectoryName(self)!, installedDir);
+            CopyDirectory(Path.GetDirectoryName(self)!, incomingDir);
+
+            var target = Path.Combine(installedDir, Path.GetFileName(self));
+            var incoming = Path.Combine(incomingDir, Path.GetFileName(self));
+
+            var cleanHash = Hashing.Sha256FileAsync(incoming).GetAwaiter().GetResult();
+
+            // 把"已安装"的那份改脏：不然新旧字节一样，"替换成功"和"根本没动"无法区分。
+            using (var stream = new FileStream(target, FileMode.Append, FileAccess.Write))
+                stream.WriteByte(0x00);
+
+            Check("准备：目标已被改脏（否则无法区分替换是否真的发生）",
+                !Hashing.Equals(Hashing.Sha256FileAsync(target).GetAwaiter().GetResult(), cleanHash));
+
+            // "旧版本正在运行" —— 它占住的正是 target 这个文件。
+            var holder = Process.Start(new ProcessStartInfo
+            {
+                FileName = target,
+                Arguments = "--sleep 4",
+                UseShellExecute = false
+            })!;
+
+            Thread.Sleep(700);   // 等它起来并锁住自己的 exe
+
+            var started = DateTime.UtcNow;
+
+            var updaterInfo = new ProcessStartInfo
+            {
+                FileName = incoming,
+                Arguments = $"{LauncherUpdater.ApplyFlag} \"{target}\" {holder.Id}",
+                UseShellExecute = false
+            };
+
+            // 替换完成后 target 会被重新拉起；那个孙子进程继承这个变量后立刻退出，
+            // 免得它在后台真跑一遍完整自检。只给更新器设，不影响本进程。
+            updaterInfo.Environment["OVERCLIENT_UPDATETEST_RELAUNCH"] = "1";
+
+            var updater = Process.Start(updaterInfo)!;
+            var finished = updater.WaitForExit(30_000);
+            var elapsed = DateTime.UtcNow - started;
+
+            holder.WaitForExit(15_000);
+
+            Check("更新器在 30 秒内结束", finished);
+
+            if (!finished)
+            {
+                try { updater.Kill(); } catch { /* 已经没了 */ }
+                return;
+            }
+
+            Check($"更新器退出码为 0（实际 {updater.ExitCode}）", updater.ExitCode == 0);
+
+            var afterHash = Hashing.Sha256FileAsync(target).GetAwaiter().GetResult();
+            Check("目标 exe 的字节已被替换成新版", Hashing.Equals(afterHash, cleanHash));
+
+            Check($"替换发生在旧进程退出之后（耗时 {elapsed.TotalSeconds:0.0}s，应 ≥ 3s）",
+                elapsed.TotalSeconds >= 3.0);
+        }
+        catch (Exception ex)
+        {
+            Check($"自替换过程抛异常：{ex.GetType().Name}: {ex.Message}", false);
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(root))
+                    Directory.Delete(root, recursive: true);
+            }
+            catch
+            {
+                // 被重新拉起的那个进程可能还占着文件，清理失败不该让自检变红。
+            }
+        }
+    }
+
+    private static void CopyDirectory(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+
+        foreach (var file in Directory.EnumerateFiles(source))
+            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), overwrite: true);
     }
 
     private static void CheckProgressFormatting()

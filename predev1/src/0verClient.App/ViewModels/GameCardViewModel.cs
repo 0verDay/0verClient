@@ -6,6 +6,7 @@ using OverClient.App.Services;
 using OverClient.Core;
 using OverClient.Core.Install;
 using OverClient.Core.Manifest;
+using OverClient.Core.Update;
 using OverClient.Core.Util;
 
 namespace OverClient.App.ViewModels;
@@ -16,6 +17,10 @@ public enum GameStatus
     Installing,
     Installed,
     Running,
+
+    /// <summary>已安装，但内容源里有更新的版本（或同版本不同内容）。按钮变成「更新」。</summary>
+    UpdateAvailable,
+
     Failed
 }
 
@@ -43,16 +48,41 @@ public sealed class GameCardViewModel : ObservableObject
 
         if (installed is not null)
         {
-            Status = GameStatus.Installed;
+            Installed = installed;
             Progress = 100;
-            StatusText = $"已安装 v{installed.Version}";
-            DetailText = installed.PlayTimeText;
+            ApplyInstalledState();
         }
         else
         {
-            var channel = entry.DefaultChannel();
+            var channel = entry.ChannelFor(_service.Settings.Channel);
             StatusText = channel is null ? "未安装" : $"未安装 · 可获取 v{channel.Version}";
         }
+    }
+
+    /// <summary>
+    /// 已安装状态下决定到底显示「已安装」还是「可更新」。
+    ///
+    /// 每次刷新游戏库、每次安装完成、每次游戏退出都会走这里，
+    /// 是"更新"这件事在界面上的唯一判定点。
+    /// </summary>
+    private void ApplyInstalledState()
+    {
+        if (Installed is null)
+            return;
+
+        var available = Entry.ChannelFor(_service.Settings.Channel);
+
+        if (UpdateCheck.IsGameUpdateAvailable(Installed, available))
+        {
+            Status = GameStatus.UpdateAvailable;
+            StatusText = $"可更新 v{Installed.Version} → v{available!.Version}";
+            DetailText = "只下载变化的文件，未变的用硬链接复用";
+            return;
+        }
+
+        Status = GameStatus.Installed;
+        StatusText = $"已安装 v{Installed.Version}";
+        DetailText = Installed.PlayTimeText;
     }
 
     public GameEntry Entry { get; }
@@ -95,6 +125,7 @@ public sealed class GameCardViewModel : ObservableObject
 
             Raise(nameof(IsInstalling));
             Raise(nameof(IsInstalled));
+            Raise(nameof(IsUpdateAvailable));
             Raise(nameof(StatusBrush));
             Raise(nameof(ActionText));
         }
@@ -102,7 +133,11 @@ public sealed class GameCardViewModel : ObservableObject
 
     public bool IsInstalling => Status == GameStatus.Installing;
 
-    public bool IsInstalled => Status is GameStatus.Installed or GameStatus.Running;
+    /// <summary>游戏已装好（含"已装但有更新"）—— 更新有更新时它依然是已安装状态。</summary>
+    public bool IsInstalled => Status is GameStatus.Installed or GameStatus.Running or GameStatus.UpdateAvailable;
+
+    /// <summary>内容源里有比本地更新的版本，用来在卡片上点一个小圆点/高亮。</summary>
+    public bool IsUpdateAvailable => Status == GameStatus.UpdateAvailable;
 
     public double Progress
     {
@@ -127,6 +162,7 @@ public sealed class GameCardViewModel : ObservableObject
         GameStatus.Installing => "取消",
         GameStatus.Installed => "启动",
         GameStatus.Running => "结束",
+        GameStatus.UpdateAvailable => "更新",
         GameStatus.Failed => "重试",
         _ => "安装"
     };
@@ -135,6 +171,7 @@ public sealed class GameCardViewModel : ObservableObject
     {
         GameStatus.Installed => new SolidColorBrush(Color.FromRgb(0x5C, 0xD6, 0x8A)),
         GameStatus.Running => new SolidColorBrush(Color.FromRgb(0x7F, 0xB0, 0xFF)),
+        GameStatus.UpdateAvailable => new SolidColorBrush(Color.FromRgb(0xFF, 0xC1, 0x4D)),
         GameStatus.Failed => new SolidColorBrush(Color.FromRgb(0xF2, 0x6D, 0x6D)),
         GameStatus.Installing => new SolidColorBrush(Color.FromRgb(0x4C, 0x8D, 0xFF)),
         _ => new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80))
@@ -155,8 +192,17 @@ public sealed class GameCardViewModel : ObservableObject
 
         Status = GameStatus.Installed;
         Installed = _service.State.Get(Entry.Id);
-        StatusText = Installed is null ? "已安装" : $"已安装 v{Installed.Version}";
-        DetailText = Installed?.PlayTimeText ?? $"本次游玩 {duration.TotalSeconds:0} 秒";
+
+        if (Installed is null)
+        {
+            Status = GameStatus.NotInstalled;
+            StatusText = "未安装";
+            DetailText = $"本次游玩 {duration.TotalSeconds:0} 秒";
+            return;
+        }
+
+        ApplyInstalledState();
+        DetailText = Installed.PlayTimeText;
     }
 
     private void MarkRunning()
@@ -181,6 +227,13 @@ public sealed class GameCardViewModel : ObservableObject
 
             case GameStatus.Installed:
                 LaunchGame();
+                return;
+
+            // "已装但有更新"走的和首次安装**完全同一条**路径：
+            // 安装器本身就是 staging → 校验 → 原子切换 + 硬链接复用新文件，
+            // 所以更新是增量的，不会重下没变的文件。
+            case GameStatus.UpdateAvailable:
+                _ = InstallAsync();
                 return;
 
             default:
@@ -237,8 +290,10 @@ public sealed class GameCardViewModel : ObservableObject
             Installed = _service.Persist(result);
 
             Progress = 100;
-            Status = GameStatus.Installed;
-            StatusText = $"已安装 v{result.Version}";
+            ApplyInstalledState();
+
+            // 覆盖掉 ApplyInstalledState 里那句简短的"已安装 vX"，
+            // 把这一次实际下载/复用了多少说清楚（更新时这个数字最有说服力）。
             DetailText = result.ReusedFiles > 0
                 ? $"下载 {result.DownloadedFiles} 个 · 复用 {result.ReusedFiles} 个 · {Hashing.HumanBytes(result.TotalBytes)}"
                 : $"{result.DownloadedFiles} 个文件 · {Hashing.HumanBytes(result.TotalBytes)}";

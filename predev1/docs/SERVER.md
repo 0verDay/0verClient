@@ -24,10 +24,21 @@ tools/Publish  ──生成──►  站点目录  ──上传──►  nginx
 
 ## Windows Server 最快路线（零安装）
 
+> 📌 **日常加游戏不用看这一节**，看 **[`ADD-GAME.md`](ADD-GAME.md)** 就够了。
+> 这一节是**首次部署**时把服务跑起来用的。
+
 如果你那台轻量服务器是 **Windows Server**，**不需要装 nginx**，也不用碰命令行安装。
-Windows 自带 PowerShell，仓库里的 `tools/serve-site.ps1` 就是一个支持 Range 的静态服务器
-（实测：`206 Partial Content` + 正确的 `Content-Range`、路径穿越 `400`、404、HEAD 均正常，
-下载回来的文件 sha256 与源文件逐字节一致）。
+
+现在有**两种**服务端，都在 Windows Server 上零安装：
+
+| 服务端 | 怎么来 | 体积 | 说明 |
+|---|---|---|---|
+| **`0verClient.Server.exe`（推荐）** | `.\build-dist.ps1 -Target server -Aot` | 约 2.1 MB | NativeAOT 原生单文件，**服务器上不需要任何运行时**。参数已预填在 `run-server.cmd` 里 |
+| `tools/serve-site.ps1` | 仓库自带 | 14 KB | 纯 PowerShell 兜底方案，不用编译任何东西 |
+
+两者行为一致，都支持 Range（实测：`206 Partial Content` + 正确的 `Content-Range`、
+路径穿越 `400`、404、HEAD 均正常，下载回来的文件 sha256 与源文件逐字节一致）。
+下面先讲 exe（推荐），PowerShell 脚本的用法在 ④ 里作为兜底。
 
 ### ① 在你自己的电脑上打包
 
@@ -39,7 +50,7 @@ dotnet build tools\Publish\Publish.csproj
 
 .\tools\Publish\bin\Debug\net10.0-windows\Publish.exe `
   --game samples\TestPack --id testpack --name "Server Test Pack" `
-  --base-url http://YOUR_SERVER_IP:8787 --out build\site --accent "#5CD68A"
+  --base-url http://YOUR_SERVER_IP:8787 --out dist\server\site --accent "#5CD68A"
 ```
 
 > ⚠️ **端口必须和你后面实际监听的端口完全一致。**
@@ -181,7 +192,7 @@ cd C:\Users\yy197\Documents\GitHub\0verClient\predev1
   --name "Server Test Pack" `
   --version 1.0.0 `
   --base-url http://YOUR_SERVER_IP:8787 `
-  --out build\site `
+  --out dist\server\site `
   --summary "从腾讯云服务器下载的测试包" `
   --tags "test,server" `
   --accent "#5CD68A"
@@ -193,7 +204,7 @@ cd C:\Users\yy197\Documents\GitHub\0verClient\predev1
 dotnet build tools\Publish\Publish.csproj
 ```
 
-生成的 `build\site\` 长这样：
+生成的 `dist\server\site\` 长这样：
 
 ```
 index.json                          游戏列表 + 每个通道清单的地址与 sha256
@@ -210,7 +221,7 @@ games/testpack/files/content/hello.txt
 
 ```powershell
 ...\Publish.exe --game D:\Games\MyGame --id mygame --name "My Game" --version 1.0.0 `
-  --base-url http://YOUR_SERVER_IP:8787 --out build\site
+  --base-url http://YOUR_SERVER_IP:8787 --out dist\server\site
 # → games in idx : 2 (mygame, testpack)
 ```
 
@@ -225,7 +236,7 @@ games/testpack/files/content/hello.txt
 Windows 10/11 自带 `scp`。腾讯云控制台也能直接网页上传，或者用 WinSCP。
 
 ```powershell
-scp -r .\build\site\* ubuntu@YOUR_SERVER_IP:/var/www/0verclient/
+scp -r .\dist\server\site\* ubuntu@YOUR_SERVER_IP:/var/www/0verclient/
 ```
 
 服务器上先准备好目录（假设系统是 Ubuntu / Debian 系，用户名 `ubuntu`）：
@@ -324,7 +335,7 @@ dotnet run --project tools/DevServer -- --site /var/www/0verclient --port 8787
 
 ### 方案 E：腾讯云 COS 对象存储 + CDN（其实最省事）
 
-不想管服务器、防火墙、证书的话，把 `build/site/` 整个传进 COS 存储桶：
+不想管服务器、防火墙、证书的话，把 `dist\server\site\` 整个传进 COS 存储桶：
 
 - 天然支持 Range 和 https
 - 不需要备案（用 COS 默认域名或 CDN 域名时按腾讯云规则来）
@@ -382,14 +393,18 @@ sudo ufw allow 8787/tcp
 
 ## 7. 日常更新流程
 
+> 📌 完整、可照抄的流程（含 Windows Server 的停服换版）：**[`ADD-GAME.md`](ADD-GAME.md)**
+> 标准输出目录是 **`dist\server\site`**，不是 `build\site` —— 这样 `dist\server\`
+> 本身就是一个可以整体替换的文件夹。
+
 ```powershell
 # 1. 改完游戏文件后重新打包（同一个 --id 就是更新）
 .\tools\Publish\bin\Debug\net10.0-windows\Publish.exe `
   --game D:\Games\MyGame --id mygame --name "My Game" --version 1.0.1 `
-  --base-url http://YOUR_SERVER_IP:8787 --out build\site
+  --base-url http://YOUR_SERVER_IP:8787 --out dist\server\site
 
-# 2. 只传变化的部分
-scp -r .\build\site\* ubuntu@YOUR_SERVER_IP:/var/www/0verclient/
+# 2. 只传站点（Linux/nginx 的服务器）
+scp -r .\dist\server\site\* ubuntu@YOUR_SERVER_IP:/var/www/0verclient/
 ```
 
 玩家侧点「安装」时，启动器会：
@@ -400,6 +415,12 @@ scp -r .\build\site\* ubuntu@YOUR_SERVER_IP:/var/www/0verclient/
 4. 全部校验通过后才原子切换到新版本；中途失败不影响现有安装
 
 也就是说改了一个文件，玩家就只下载那一个文件。
+
+> ⚠️ **但玩家得有办法点回「安装」。** 当前版本里卡片一旦显示「已安装」，
+> 按钮就锁死成「启动」，**没有更新按钮也没有卸载按钮** —— 也就是说已经装过的玩家
+> 拿不到你刚发的 1.0.1。临时办法是让玩家删掉
+> `%LOCALAPPDATA%\0verClient\games\<id>\` 和 `state\<id>.json` 再重装；
+> 长期解法是给卡片加"检测到新版本 → 更新"的状态。详见 `ADD-GAME.md`。
 
 ---
 

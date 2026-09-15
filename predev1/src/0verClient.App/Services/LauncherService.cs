@@ -3,6 +3,7 @@ using OverClient.Core.Install;
 using OverClient.Core.Launch;
 using OverClient.Core.Manifest;
 using OverClient.Core.Net;
+using OverClient.Core.Update;
 using OverClient.Core.Util;
 
 namespace OverClient.App.Services;
@@ -48,6 +49,20 @@ public sealed class LauncherService : IDisposable
 
     public Task<GameManifest> LoadManifestAsync(GameEntry entry, CancellationToken ct = default) =>
         _manifests.LoadManifestAsync(entry, Settings.Channel, ct);
+
+    /// <summary>
+    /// 取站点里的 latest.json（启动器自身的更新信息）。
+    /// 拿不到就返回 null —— 站点不提供启动器更新是正常情况，不是错误。
+    /// </summary>
+    public Task<LauncherRelease?> LoadLauncherReleaseAsync(CancellationToken ct = default) =>
+        _manifests.LoadLauncherReleaseAsync(Settings.IndexUrl, ct);
+
+    /// <summary>下载并校验新版启动器，返回它的磁盘路径。校验不过会抛异常。</summary>
+    public Task<string> DownloadLauncherUpdateAsync(
+        LauncherUpdateDecision decision,
+        IProgress<LauncherDownloadProgress>? progress = null,
+        CancellationToken ct = default) =>
+        LauncherUpdater.DownloadAsync(_source, decision, progress, ct);
 
     public Task<InstallResult> InstallAsync(
         GameManifest manifest,

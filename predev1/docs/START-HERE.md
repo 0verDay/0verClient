@@ -265,12 +265,21 @@ C:\Users\yy197\Documents\GitHub\0verClient\predev1\src\0verClient.App\bin\Debug\
 ```powershell
 .\tools\Publish\bin\Debug\net10.0-windows\Publish.exe `
   --game "D:\Games\我的游戏" --id mygame --name "我的游戏" --version 1.0.0 `
-  --base-url http://YOUR_SERVER_IP:8787 --out build\site
+  --base-url http://YOUR_SERVER_IP:8787 --out dist\server\site
 ```
 
-`index.json` 是**合并**不是覆盖，游戏可以一个一个加，加完把整个 `site` 重传一次。
+注意输出目录是 **`dist\server\site`**，不是 `build\site`。
+这样 `dist\server\` 就是一个"整体替换即可"的文件夹（exe + run-server.cmd + site），
+传上去、停旧服务、跑 `run-server.cmd` 就完事 —— 不用再手工把站点挪到服务端目录旁边。
+
+一条命令只加一个游戏；`index.json` 是**合并**不是覆盖，可以一个一个加。
+只加游戏时**不需要重新编译服务端**，也不用重启它（服务端每次请求都读磁盘）。
+
 几个 GB 的文件用 `mstsc` →「显示选项」→「本地资源」→「详细信息」→ 勾选本地磁盘，
-再从 `\\tsclient\C\...` 复制。
+再从 `\\tsclient\C\...` 用 robocopy 复制。
+
+> 📌 **完整、可照抄的日常流程在 [`ADD-GAME.md`](ADD-GAME.md)** ——
+> 打包 / 上传 / 停服换版 / 验证 / 发新版本 / 坑表，都在那一页。
 
 **想升级到 https**：先查腾讯云控制台「域名管理」有没有域名。有域名且已备案才能用
 80/443；升级后必须**用域名重新打包一次**（`--base-url` 变了）。

@@ -50,24 +50,37 @@ public sealed class ManifestService(IContentSource source, UrlPolicy policy)
 
     public async Task<GameManifest> LoadManifestAsync(GameEntry game, string channel, CancellationToken ct = default)
     {
-        var pointer = game.Channel(channel)
-            ?? throw new InvalidDataException($"游戏 {game.Id} 不存在通道 {channel}");
+        // 通道不存在时退回默认通道，而不是直接失败。
+        // 卡片显示走的是同一个 ChannelFor，两边必须一致 ——
+        // 否则会出现"卡片上写着 beta、点安装却报错说不存在 beta 通道"。
+        var pointer = game.Channel(channel);
+
+        if (pointer is null)
+        {
+            pointer = game.DefaultChannel()
+                ?? throw new InvalidDataException($"游戏 {game.Id} 没有任何可用通道");
+
+            Log.Warn($"游戏 {game.Id} 没有通道 {channel}，退回默认通道 {pointer.Version}");
+        }
 
         _policy.AssertAllowed(pointer.ManifestUrl);
         AssertSourceConsistency(pointer.ManifestUrl);
 
         var bytes = await _source.GetBytesAsync(pointer.ManifestUrl, ct).ConfigureAwait(false);
+        var manifestHash = Hashing.Sha256Bytes(bytes);
 
         // 清单是"带内"信任根：先校验哈希，再解析。
-        if (!string.IsNullOrWhiteSpace(pointer.ManifestSha256))
+        if (!string.IsNullOrWhiteSpace(pointer.ManifestSha256) &&
+            !Hashing.Equals(manifestHash, pointer.ManifestSha256))
         {
-            var actual = Hashing.Sha256Bytes(bytes);
-            if (!Hashing.Equals(actual, pointer.ManifestSha256))
-                throw new InvalidDataException(
-                    $"清单哈希校验失败（可能被篡改或传输损坏）\n期望 {pointer.ManifestSha256}\n实际 {actual}");
+            throw new InvalidDataException(
+                $"清单哈希校验失败（可能被篡改或传输损坏）\n期望 {pointer.ManifestSha256}\n实际 {manifestHash}");
         }
 
         var manifest = JsonDefaults.Deserialize<GameManifest>(bytes);
+
+        // 记下这份清单的哈希，安装时写进本地记录。它是"版本号没变但内容变了"的唯一判据。
+        manifest.ManifestSha256 = manifestHash;
 
         if (manifest.SchemaVersion > GameManifest.CurrentSchema)
             throw new NotSupportedException(
@@ -96,6 +109,46 @@ public sealed class ManifestService(IContentSource source, UrlPolicy policy)
 
         Log.Info($"清单加载完成：{manifest.Name} {manifest.Version}，{manifest.Files.Count} 个文件 {Hashing.HumanBytes(manifest.TotalBytes)}");
         return manifest;
+    }
+
+    /// <summary>
+    /// 拉站点根目录下的 <c>latest.json</c>（启动器自身的更新信息），取不到就返回 null。
+    ///
+    /// 这里刻意**不抛异常**：站点不提供启动器更新是完全正常的情况（老站点根本没这个文件），
+    /// 绝不能让它把整个"刷新游戏库"搞失败。网络抖动、404、JSON 损坏，一律降级成"没有更新"。
+    /// </summary>
+    public async Task<LauncherRelease?> LoadLauncherReleaseAsync(string indexUrl, CancellationToken ct = default)
+    {
+        if (!Uri.TryCreate(indexUrl, UriKind.Absolute, out var indexUri))
+            return null;
+
+        // latest.json 与 index.json 同级 —— 索引放在子目录时也跟着放在子目录。
+        var releaseUrl = new Uri(indexUri, "latest.json").ToString();
+        _policy.AssertAllowed(releaseUrl);
+
+        try
+        {
+            var bytes = await _source.GetBytesAsync(releaseUrl, ct).ConfigureAwait(false);
+            var release = JsonDefaults.Deserialize<LauncherRelease>(bytes);
+
+            if (release.SchemaVersion > LauncherRelease.CurrentSchema)
+            {
+                Log.Warn($"latest.json schemaVersion={release.SchemaVersion} 高于本启动器支持的 {LauncherRelease.CurrentSchema}，忽略");
+                return null;
+            }
+
+            Log.Info($"latest.json 读取成功：最新启动器版本 {release.Version}");
+            return release;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Log.Info($"站点没有可用的 latest.json（按「不提供启动器更新」处理）：{ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>
