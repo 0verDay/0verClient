@@ -4,6 +4,8 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using OverClient.App.Services;
+using OverClient.App.Theme;
 using OverClient.Core;
 using OverClient.Core.Update;
 
@@ -39,6 +41,13 @@ public partial class App : Application
             return;
         }
 
+        // 主题必须在任何窗口之前定下来：窗口第一次解析 XAML 时就要取到正确颜色，
+        // 否则会先按默认深色画一遍再变色（启动时闪一下）。
+        //
+        // 优先用启动参数 --theme dark|light（自检/截图用），否则读用户设置。
+        var themeArg = ArgValue(e.Args, "--theme");
+        ThemeManager.Apply(themeArg ?? AppSettings.Load().Theme);
+
         // --screenshot [path]：把主窗口连同一张"悬停中"的卡片渲染成 PNG 然后退出。
         //
         // 存在的理由：描边被裁、间距不对这类问题**只有真实渲染才看得见**，
@@ -65,6 +74,33 @@ public partial class App : Application
             return;
         }
 
+        // --selfcheck-themes：两套主题各实例化一遍。
+        //
+        // 这是"换主题"这个功能唯一的自动化保障：调色板少一个键时，
+        // DynamicResource 会在实例化那一刻抛 ResourceReferenceKeyNotFoundException，
+        // 而编译期完全看不出来。所以必须两套都真的建一次窗口。
+        if (e.Args.Any(a => string.Equals(a, "--selfcheck-themes", StringComparison.OrdinalIgnoreCase)))
+        {
+            var code = RunSelfCheckAllThemes();
+            Log.Info($"---- 主题自检结束，退出码 {code} ----");
+            Environment.Exit(code);
+            return;
+        }
+
+        // --selfcheck-theme-switch：在**一个活着的窗口**上真的切一次主题。
+        //
+        // 前三项自检都只能证明"用某个主题建窗口不炸"，证明不了"换主题界面会跟着变色"。
+        // 而后者恰恰是最容易悄悄失效的地方 —— 只要哪个属性当初写成了 StaticResource，
+        // 换主题时它会继续显示旧颜色，且**不报任何错**。
+        // 这里直接读元素的实际颜色，深色渲染一遍、切浅色再渲染一遍，颜色必须变。
+        if (e.Args.Any(a => string.Equals(a, "--selfcheck-theme-switch", StringComparison.OrdinalIgnoreCase)))
+        {
+            var code = RunSelfCheckLiveThemeSwitch();
+            Log.Info($"---- 实时主题切换自检结束，退出码 {code} ----");
+            Environment.Exit(code);
+            return;
+        }
+
         Log.Info("---- 启动器启动 ----");
 
         // 不用 StartupUri：显式建窗可以保证自检路径不会顺手把主窗口也拉起来。
@@ -79,8 +115,11 @@ public partial class App : Application
     /// 把主窗口（含一张被强制成"悬停中"的卡片）渲染成 PNG。
     ///
     /// IsMouseOver 是只读依赖属性，无鼠标时触发器不会亮，所以这里直接取模板部件
-    /// （Halo / HaloScale / Body）并把它们设成动画的**终值**，数值与 Theme.xaml 里的 To 一致。
+    /// （Halo / HaloScale / Hover）并把它们设成动画的**终值**，数值与 Theme.xaml 里的 To 一致。
     /// 改 Theme.xaml 里的动画数值时，这里也要跟着改，否则截出来的不是真实效果。
+    ///
+    /// 想截浅色主题：加 --theme light（见 OnStartup），例如
+    ///   0verClient.exe --theme light --screenshot build\ui-light.png
     /// </summary>
     private static int RunScreenshot(string[] args)
     {
@@ -97,6 +136,14 @@ public partial class App : Application
             for (var i = 0; i < 4; i++)
                 window.ViewModel.AddSampleCardForSelfCheck();
 
+            // --page settings 可以截设置页 —— 主题选择栏在那里，
+            // 它是自研模板的 ComboBox（默认 ComboBox 在浅色主题下会白字白底），
+            // 必须真的渲染一次看一眼，自检只能证明"没抛异常"。
+            var page = ArgValue(args, "--page");
+            var showSettings = string.Equals(page, "settings", StringComparison.OrdinalIgnoreCase);
+            if (showSettings)
+                window.ViewModel.NavIndex = 2;
+
             if (window.Content is not UIElement root)
             {
                 Log.Error("SCREENSHOT FAILED: MainWindow 没有内容");
@@ -109,7 +156,8 @@ public partial class App : Application
             root.Arrange(new Rect(0, 0, width, height));
             root.UpdateLayout();
 
-            var hovered = ForceHoverOnFirstCard(root);
+            // 设置页里没有卡片，这时候"没找到卡片"是正常情况，不算失败。
+            var hovered = showSettings ? 0 : ForceHoverOnFirstCard(root);
 
             var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
             bitmap.Render(root);
@@ -135,7 +183,9 @@ public partial class App : Application
 
             Log.Info($"SCREENSHOT OK: {full}（强制悬停 {hovered} 张卡片）");
             Console.WriteLine(full);
-            return hovered > 0 ? 0 : 1;
+
+            // 设置页没有卡片可悬停，不能用"悬停了 0 张"判定失败。
+            return hovered > 0 || showSettings ? 0 : 1;
         }
         catch (Exception ex)
         {
@@ -164,8 +214,13 @@ public partial class App : Application
             scale.ScaleY = 1.022;
         }
 
-        if (card.Template.FindName("Body", card) is Border body)
-            body.Background = new SolidColorBrush(Color.FromArgb(0x1C, 0xFF, 0xFF, 0xFF));
+        // 悬停变亮是独立一层 Hover 的 Opacity 动画（见 Theme.xaml 的 GameCardButton）。
+        // 数值必须和 Storyboard 里的 To 一致，否则截出来的不是真实效果。
+        //
+        // 这里刻意**不再**直接改 Body 的 Background：那样做等于绕过模板去伪造悬停态，
+        // 结果是截图和真人看到的不是一回事（而且会把文字盖住也看不出来）。
+        if (card.Template.FindName("Hover", card) is Border hover)
+            hover.Opacity = 1;
 
         card.UpdateLayout();
         return 1;
@@ -237,6 +292,126 @@ public partial class App : Application
             return 1;
         }
     }
+
+    /// <summary>
+    /// 两套主题各建一次主窗口。
+    ///
+    /// 单独存在的理由：换主题最容易犯的错是"某个颜色只写进了深色调色板"，
+    /// 而这类错误只在**该主题被真正加载**时才炸（DynamicResource 找不到键会抛
+    /// ResourceReferenceKeyNotFoundException）。只跑深色自检是发现不了的。
+    /// </summary>
+    private static int RunSelfCheckAllThemes()
+    {
+        var failed = 0;
+
+        foreach (var kind in new[] { ThemeKind.Dark, ThemeKind.Light })
+        {
+            ThemeManager.Apply(kind);
+
+            var name = ThemeManager.ToSettingValue(kind);
+            var code = RunSelfCheck();
+
+            if (code == 0)
+            {
+                Log.Info($"THEME SELFCHECK OK: {name}");
+                Console.WriteLine($"主题 {name}: 通过");
+            }
+            else
+            {
+                Log.Error($"THEME SELFCHECK FAILED: {name}（退出码 {code}）");
+                Console.WriteLine($"主题 {name}: 失败");
+                failed++;
+            }
+        }
+
+        return failed == 0 ? 0 : 1;
+    }
+
+    /// <summary>
+    /// 在一个真正布局过的窗口上切换主题，并断言颜色**真的变了**。
+    ///
+    /// 做法：往窗口的真实视觉树里插一个探针 Border，给它挂 SetResourceReference("WindowBg")
+    /// —— 这正是 XAML 里写 {DynamicResource WindowBg} 时编译器生成的东西 ——
+    /// 然后渲染、取色、切主题、再取色。颜色没变就说明重新求值链路断了（或者有人把它改回了
+    /// StaticResource），退出码 1。
+    ///
+    /// 探针必须真的进视觉树。第一版把它建在树外面，结果切主题后颜色纹丝不动：
+    /// 不在树上的元素拿不到资源失效通知，于是"测试失败"和"功能坏了"长得一模一样。
+    /// </summary>
+    private static int RunSelfCheckLiveThemeSwitch()
+    {
+        try
+        {
+            var window = new MainWindow();
+            window.ViewModel.AddSampleCardForSelfCheck();
+
+            if (window.Content is not UIElement root)
+            {
+                Log.Error("LIVE THEME SWITCH FAILED: MainWindow 没有内容");
+                return 1;
+            }
+
+            // 探针铺满整个窗口最底层，既在视觉树里，又不会盖住别的东西。
+            var probe = new Border();
+            probe.SetResourceReference(Border.BackgroundProperty, "WindowBg");
+
+            if (root is Panel panel)
+                panel.Children.Insert(0, probe);
+            else if (root is Decorator decorator && decorator.Child is Panel inner)
+                inner.Children.Insert(0, probe);
+            else
+            {
+                Log.Error($"LIVE THEME SWITCH FAILED: 根元素是 {root.GetType().Name}，没法插入探针");
+                return 1;
+            }
+
+            root.Measure(new Size(1180, 720));
+            root.Arrange(new Rect(0, 0, 1180, 720));
+            root.UpdateLayout();
+
+            var start = ThemeManager.Current;
+            ThemeManager.Apply(ThemeKind.Dark);
+            window.UpdateLayout();
+            var before = ProbeColor(probe);
+
+            ThemeManager.Apply(ThemeKind.Light);
+            window.UpdateLayout();
+            var afterLight = ProbeColor(probe);
+
+            ThemeManager.Apply(ThemeKind.Dark);
+            window.UpdateLayout();
+            var afterDark = ProbeColor(probe);
+
+            ThemeManager.Apply(start);
+
+            Console.WriteLine($"深色窗口底色: {before}");
+            Console.WriteLine($"浅色窗口底色: {afterLight}");
+            Console.WriteLine($"切回深色:     {afterDark}");
+
+            if (before == afterLight)
+            {
+                Log.Error($"LIVE THEME SWITCH FAILED: 切到浅色后底色仍是 {before}，DynamicResource 没有重新求值");
+                return 1;
+            }
+
+            if (afterDark != before)
+            {
+                Log.Error($"LIVE THEME SWITCH FAILED: 切回深色得到 {afterDark}，与初始值 {before} 不一致");
+                return 1;
+            }
+
+            Log.Info($"LIVE THEME SWITCH OK: {before} -> {afterLight} -> {afterDark}");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("LIVE THEME SWITCH FAILED", ex);
+            return 1;
+        }
+    }
+
+    private static string ProbeColor(Border probe) =>
+        probe.Background is SolidColorBrush brush ? brush.Color.ToString() : "(非纯色画刷)";
 
     protected override void OnExit(ExitEventArgs e)
     {

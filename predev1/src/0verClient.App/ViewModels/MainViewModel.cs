@@ -5,11 +5,15 @@ using System.Windows;
 using System.Windows.Input;
 using OverClient.App.Mvvm;
 using OverClient.App.Services;
+using OverClient.App.Theme;
 using OverClient.Core;
 using OverClient.Core.Update;
 using OverClient.Core.Util;
 
 namespace OverClient.App.ViewModels;
+
+/// <summary>设置页里主题下拉框的一项。<see cref="Value"/> 是存进 settings.json 的字符串。</summary>
+public sealed record ThemeOption(string Value, string Display);
 
 public sealed class MainViewModel : ObservableObject, IDisposable
 {
@@ -20,6 +24,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string _indexUrl;
     private bool _allowInsecureHttp;
     private string _allowedHosts = "";
+    private string _theme;
     private string _lastError = "";
     private LauncherUpdateDecision _launcherUpdate = LauncherUpdateDecision.None;
     private bool _isUpdatingLauncher;
@@ -31,6 +36,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _allowInsecureHttp = _service.Settings.AllowInsecureHttp;
         _allowedHosts = _service.Settings.AllowedHosts;
 
+        // 以 ThemeManager 当前实际挂着的主题为准，而不是设置文件里的字符串：
+        // 启动参数 --theme 可以覆盖设置，两者不一致时界面必须显示"真正在用的那个"。
+        _theme = ThemeManager.ToSettingValue(ThemeManager.Current);
+
         RefreshCommand = new AsyncRelayCommand(_ => RefreshAsync(), _ => !_isBusy);
         SaveSettingsCommand = new RelayCommand(_ => SaveSettings());
         OpenDataFolderCommand = new RelayCommand(_ => OpenPath(AppPaths.Root));
@@ -38,11 +47,19 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         UpdateLauncherCommand = new AsyncRelayCommand(_ => UpdateLauncherAsync(), _ => CanApplyLauncherUpdate);
 
         _service.Launcher.GameExited += OnGameExited;
+        ThemeManager.Changed += OnThemeChanged;
     }
 
     public ObservableCollection<GameCardViewModel> Games { get; } = [];
 
     public ObservableCollection<GameCardViewModel> Downloads { get; } = [];
+
+    /// <summary>主题下拉框的固定选项。顺序就是界面上的顺序。</summary>
+    public IReadOnlyList<ThemeOption> ThemeOptions { get; } =
+    [
+        new("dark", "深色模式"),
+        new("light", "浅色模式")
+    ];
 
     public ICommand RefreshCommand { get; }
     public ICommand SaveSettingsCommand { get; }
@@ -134,6 +151,37 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         get => _allowedHosts;
         set => Set(ref _allowedHosts, value);
     }
+
+    /// <summary>
+    /// 设置页里选中的主题（"dark" / "light"）。
+    ///
+    /// 这个 setter 刻意**立刻切换并落盘**，而不是等用户点「保存」：
+    /// 主题是所见即所得的东西，选完还要再点一次保存才能看到效果很别扭。
+    /// 其余设置（索引地址、白名单）仍然只在点「保存」时落盘，因为它们是"改了会影响
+    /// 下一次刷新"的配置，需要显式确认。
+    /// </summary>
+    public string SelectedTheme
+    {
+        get => _theme;
+        set
+        {
+            var normalized = ThemeManager.NormalizeSetting(value);
+
+            if (!Set(ref _theme, normalized))
+                return;
+
+            ThemeManager.Apply(normalized);
+            _service.Settings.Theme = normalized;
+            _service.SaveSettings();
+
+            Raise(nameof(ThemeHint));
+            StatusText = normalized == "light" ? "已切换到浅色模式" : "已切换到深色模式";
+        }
+    }
+
+    public string ThemeHint => ThemeManager.IsLight
+        ? "当前：浅色模式。窗口底色接近不透明，保证深色文字在亮色桌面上依然清晰。"
+        : "当前：深色模式。半透明深色外壳，配合桌面背景。";
 
     public string PolicyHint => _service.Settings.DescribePolicy();
 
@@ -357,11 +405,29 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _service.Settings.IndexUrl = IndexUrl;
         _service.Settings.AllowInsecureHttp = AllowInsecureHttp;
         _service.Settings.AllowedHosts = AllowedHosts;
+        _service.Settings.Theme = SelectedTheme;
         _service.SaveSettings();
 
         Raise(nameof(Channel));
         Raise(nameof(PolicyHint));
+        Raise(nameof(ThemeHint));
         StatusText = $"设置已保存 · {_service.Settings.DescribePolicy()} · 点「刷新游戏库」生效";
+    }
+
+    /// <summary>
+    /// 主题被别处改掉时（目前只有设置页自己，但将来可能有快捷键/跟随系统）同步下拉框。
+    /// 没有这层的话，SelectedTheme 会停在旧值，下拉框显示的主题和实际外观不一致。
+    /// </summary>
+    private void OnThemeChanged(object? sender, EventArgs e)
+    {
+        var current = ThemeManager.ToSettingValue(ThemeManager.Current);
+
+        if (string.Equals(_theme, current, StringComparison.Ordinal))
+            return;
+
+        _theme = current;
+        Raise(nameof(SelectedTheme));
+        Raise(nameof(ThemeHint));
     }
 
     private void OnGameExited(object? sender, Core.Launch.GameExitEventArgs e)
@@ -398,5 +464,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    public void Dispose() => _service.Dispose();
+    public void Dispose()
+    {
+        // 静态事件（ThemeManager.Changed）必须退订：视图模型被重建而订阅留着的话，
+        // 下一次切主题会回调到已经死掉的实例上。
+        ThemeManager.Changed -= OnThemeChanged;
+        _service.Dispose();
+    }
 }

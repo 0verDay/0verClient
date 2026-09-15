@@ -1,0 +1,67 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        ============ 浅色主题调色板 ============
+        键名与 Palette.Dark.xaml 必须一一对应 —— Theme/Theme.xaml 里的样式只认键名。
+        加新颜色时两个文件都要加，否则换到浅色时会缺资源。
+
+        浅色下窗口底色刻意接近不透明（#F7F8F8FA）：半透明窗口叠在亮色桌面上会让
+        深色文字发灰、对比度不可控，而浅色主题本来就该是"干净、清晰"的观感。
+        卡片/侧边栏仍然是半透明的浅灰，层次感由它们来承担。
+
+        注意：本文件里的画刷刻意不写 PresentationOptions:Freeze="True"。
+        GameCardButton 模板会对 Background.Color 做动画（见 Theme.xaml）。
+    -->
+
+    <!-- ===== 主题相关颜色 ===== -->
+    <Color x:Key="WindowBgColor">#F7F8F8FA</Color>
+    <Color x:Key="WindowBorderColor">#33000000</Color>
+
+    <SolidColorBrush x:Key="WindowBg" Color="{StaticResource WindowBgColor}" />
+    <SolidColorBrush x:Key="WindowBorder" Color="{StaticResource WindowBorderColor}" />
+    <SolidColorBrush x:Key="SidebarBg" Color="#0A000000" />
+    <SolidColorBrush x:Key="CardBg" Color="#B3FFFFFF" />
+    <SolidColorBrush x:Key="CardBgHover" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="HairLine" Color="#1F000000" />
+
+    <SolidColorBrush x:Key="TextPrimary" Color="#FF111827" />
+    <SolidColorBrush x:Key="TextSecondary" Color="#FF4B5563" />
+    <SolidColorBrush x:Key="TextMuted" Color="#FF6B7280" />
+
+    <!-- 覆盖在窗口底色上的微亮/微暗层（幽灵按钮、输入框、复选框、进度条轨道） -->
+    <SolidColorBrush x:Key="ControlBg" Color="#0F000000" />
+    <SolidColorBrush x:Key="ControlBgHover" Color="#1A000000" />
+
+    <!-- 侧边栏导航项 -->
+    <SolidColorBrush x:Key="NavHoverBg" Color="#0D000000" />
+    <SolidColorBrush x:Key="NavSelectedBg" Color="#1A000000" />
+
+    <!-- 标题栏按钮 -->
+    <SolidColorBrush x:Key="CaptionHoverBg" Color="#14000000" />
+
+    <!-- 游戏卡片里的动作胶囊、封面首字母水印 -->
+    <SolidColorBrush x:Key="ActionPillBg" Color="#14000000" />
+    <SolidColorBrush x:Key="CoverWatermark" Color="#59FFFFFF" />
+
+    <!-- 进度条轨道 -->
+    <SolidColorBrush x:Key="TrackBg" Color="#22000000" />
+
+    <!-- 启动器更新横幅 -->
+    <SolidColorBrush x:Key="UpdateBannerBg" Color="#1F4C8DFF" />
+    <SolidColorBrush x:Key="UpdateBannerBorder" Color="#4D4C8DFF" />
+
+    <!-- 空状态图标底、底部状态栏 -->
+    <SolidColorBrush x:Key="EmptyIconBg" Color="#14000000" />
+    <SolidColorBrush x:Key="StatusBarBg" Color="#08000000" />
+
+    <!-- ===== 跨主题共享的语义色（与深色版保持一致） ===== -->
+    <Color x:Key="AccentColor">#FF4C8DFF</Color>
+    <Color x:Key="AccentSoftColor">#FF7FB0FF</Color>
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#FFF26D6D" />
+    <SolidColorBrush x:Key="SuccessBrush" Color="#FF5CD68A" />
+    <SolidColorBrush x:Key="WarningBrush" Color="#FFFFC14D" />
+    <SolidColorBrush x:Key="CloseHoverBg" Color="#E81123" />
+
+</ResourceDictionary>

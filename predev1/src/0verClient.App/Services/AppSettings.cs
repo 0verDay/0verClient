@@ -25,6 +25,14 @@ public sealed class AppSettings
     /// <summary>允许的主机，逗号/分号/空白分隔。留空表示不限制 https 主机。</summary>
     public string AllowedHosts { get; set; } = "";
 
+    /// <summary>
+    /// 界面主题："dark" 或 "light"。
+    /// 存成字符串而不是枚举：settings.json 是给人和脚本看的，
+    /// 而且枚举值以后改名/重排不会把老配置读坏。
+    /// 非法值一律按 dark 处理（见 <see cref="OverClient.App.Theme.ThemeManager.NormalizeSetting"/>）。
+    /// </summary>
+    public string Theme { get; set; } = "dark";
+
     public static string FilePath => System.IO.Path.Combine(AppPaths.Root, "settings.json");
 
     /// <summary>

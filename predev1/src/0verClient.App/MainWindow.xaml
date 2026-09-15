@@ -31,18 +31,18 @@
 
                     <Border Grid.Row="0" CornerRadius="13,13,0,0" Background="{Binding CoverBrush}">
                         <TextBlock Text="{Binding Initial}"
-                                   FontSize="52" FontWeight="Bold" Foreground="#4DFFFFFF"
+                                   FontSize="52" FontWeight="Bold" Foreground="{DynamicResource CoverWatermark}"
                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                    Margin="0,0,14,-6" />
                     </Border>
 
                     <StackPanel Grid.Row="1" Margin="14,12,14,0">
                         <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimary}" TextTrimming="CharacterEllipsis" />
+                                   Foreground="{DynamicResource TextPrimary}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding TagText}" FontSize="11" Margin="0,3,0,0"
-                                   Foreground="{StaticResource TextMuted}" TextTrimming="CharacterEllipsis" />
+                                   Foreground="{DynamicResource TextMuted}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding Summary}" FontSize="11.5" Margin="0,8,0,0" MaxHeight="32"
-                                   Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap"
                                    TextTrimming="CharacterEllipsis" />
                     </StackPanel>
 
@@ -67,13 +67,13 @@
                                 <TextBlock Text="{Binding StatusText}" FontSize="12"
                                            Foreground="{Binding StatusBrush}" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="{Binding DetailText}" FontSize="10.5" Margin="0,2,0,0"
-                                           Foreground="{StaticResource TextMuted}" TextTrimming="CharacterEllipsis" />
+                                           Foreground="{DynamicResource TextMuted}" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
 
-                            <Border Grid.Column="1" Background="#1FFFFFFF" CornerRadius="7"
+                            <Border Grid.Column="1" Background="{DynamicResource ActionPillBg}" CornerRadius="7"
                                     Padding="11,5" VerticalAlignment="Center" Margin="8,0,0,0">
                                 <TextBlock Text="{Binding ActionText}" FontSize="12"
-                                           Foreground="{StaticResource TextPrimary}" />
+                                           Foreground="{DynamicResource TextPrimary}" />
                             </Border>
                         </Grid>
                     </StackPanel>
@@ -84,8 +84,8 @@
     </Window.Resources>
 
     <!-- 半透明圆角外壳 -->
-    <Border Background="{StaticResource WindowBg}" CornerRadius="14"
-            BorderBrush="#26FFFFFF" BorderThickness="1">
+    <Border Background="{DynamicResource WindowBg}" CornerRadius="14"
+            BorderBrush="{DynamicResource WindowBorder}" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="52" />
@@ -97,14 +97,14 @@
             <Grid Grid.Row="0" Background="Transparent"
                   MouseLeftButtonDown="TopBar_MouseLeftButtonDown">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0,0,0">
-                    <Border Width="20" Height="20" CornerRadius="6" Background="{StaticResource AccentBrush}">
+                    <Border Width="20" Height="20" CornerRadius="6" Background="{DynamicResource AccentBrush}">
                         <TextBlock Text="0" FontSize="12" FontWeight="Bold" Foreground="White"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <TextBlock Text="0verClient" FontSize="14.5" FontWeight="SemiBold" Margin="9,0,0,0"
-                               VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}" />
+                               VerticalAlignment="Center" Foreground="{DynamicResource TextPrimary}" />
                     <TextBlock Text="0verDay 游戏启动器" FontSize="11.5" Margin="10,1,0,0"
-                               VerticalAlignment="Center" Foreground="{StaticResource TextMuted}" />
+                               VerticalAlignment="Center" Foreground="{DynamicResource TextMuted}" />
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
@@ -122,14 +122,14 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- 左侧边栏 -->
-                <Border Grid.Column="0" Background="{StaticResource SidebarBg}" CornerRadius="12,0,0,12">
+                <Border Grid.Column="0" Background="{DynamicResource SidebarBg}" CornerRadius="12,0,0,12">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Bottom" Margin="18,0,18,18">
-                            <Border Height="1" Background="{StaticResource HairLine}" Margin="0,0,0,12" />
+                            <Border Height="1" Background="{DynamicResource HairLine}" Margin="0,0,0,12" />
                             <TextBlock Text="{Binding LauncherVersion, StringFormat=版本 {0}}"
-                                       FontSize="11" Foreground="{StaticResource TextMuted}" />
+                                       FontSize="11" Foreground="{DynamicResource TextMuted}" />
                             <TextBlock Text="{Binding Channel, StringFormat=通道 {0}}"
-                                       FontSize="11" Margin="0,3,0,0" Foreground="{StaticResource TextMuted}" />
+                                       FontSize="11" Margin="0,3,0,0" Foreground="{DynamicResource TextMuted}" />
                         </StackPanel>
 
                         <ListBox Style="{StaticResource NavList}"
@@ -158,9 +158,9 @@
 
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="{Binding PageTitle}" FontSize="19" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextPrimary}" />
+                                       Foreground="{DynamicResource TextPrimary}" />
                             <TextBlock Text="{Binding PageSubtitle}" FontSize="12" Margin="0,4,0,0"
-                                       Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" />
+                                       Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap" />
                         </StackPanel>
 
                         <!-- 刷新按钮必须常驻：之前只在空库时才出现，导致"保存后不知道怎么刷新" -->
@@ -177,7 +177,7 @@
                         IsEnabled 显式绑 CanApplyLauncherUpdate：站点没给 sha256 时按钮必须是灰的。
                     -->
                     <Border Grid.Row="1" Margin="0,0,0,14" Padding="14,10" CornerRadius="9"
-                            Background="#244C8DFF" BorderBrush="#4D4C8DFF" BorderThickness="1"
+                            Background="{DynamicResource UpdateBannerBg}" BorderBrush="{DynamicResource UpdateBannerBorder}" BorderThickness="1"
                             Visibility="{Binding IsLauncherUpdateAvailable, Converter={StaticResource BoolToVis}}">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -187,10 +187,10 @@
 
                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                 <TextBlock Text="启动器更新" FontSize="12.5" FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextPrimary}" />
+                                           Foreground="{DynamicResource TextPrimary}" />
                                 <TextBlock Text="{Binding LauncherUpdateText}" FontSize="11.5" Margin="0,4,0,0"
                                            TextWrapping="Wrap" LineHeight="17"
-                                           Foreground="{StaticResource TextSecondary}" />
+                                           Foreground="{DynamicResource TextSecondary}" />
                             </StackPanel>
 
                             <Button Grid.Column="1" Style="{StaticResource PrimaryButton}"
@@ -239,14 +239,64 @@
 
                     <!-- 设置 -->
                     <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
                                   Visibility="{Binding IsSettingsVisible, Converter={StaticResource BoolToVis}}">
-                        <StackPanel MaxWidth="640" HorizontalAlignment="Left">
+                        <!--
+                            Width 必须是固定值，不能写 MaxWidth。
+                            ScrollViewer 的内容在水平方向按"无限宽"测量，于是 StackPanel 会去
+                            量它最宽的那个子元素（长段落文字），量完再被 MaxWidth 砍到 640。
+                            结果 StackPanel 的实际宽度**永远等于 640**，它里面任何
+                            HorizontalAlignment 没写 Left 的子元素都会被居中 —— 主题下拉框
+                            当时就是这么飘到中间的。固定 Width=640 让宽度与测量无关，
+                            这类问题不会再出现。
+                        -->
+                        <StackPanel Width="640" HorizontalAlignment="Left">
+
+                            <!-- ===== 界面主题 ===== -->
+                            <TextBlock Text="界面主题" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimary}" />
+                            <TextBlock Text="选择深色或浅色外观。选完立刻生效，并记进 settings.json，下次启动沿用。"
+                                       FontSize="11.5" Margin="0,5,0,0" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource TextMuted}" />
+
+                            <!--
+                                SelectedValue + SelectedValuePath 配 SelectedTheme（字符串属性）：
+                                ComboBox 的 SelectedItem/SelectedValue 默认就是 TwoWay，
+                                这里绑的是**可写**属性，所以不需要（也不能）写 Mode=OneWay。
+                                （对比卡片里的 ProgressBar.Value —— 那是只读属性，必须显式 OneWay。）
+
+                                用 ItemTemplate 而不是 DisplayMemberPath：自研的 ComboBoxItem /
+                                闭合态模板都不认 DisplayMemberPath，会退化成显示 record 的 ToString()。
+                            -->
+                            <!--
+                                必须显式写 HorizontalAlignment="Left"。
+                                ComboBox 在样式里设了固定 Width=168，而**固定宽度**的元素在 StackPanel
+                                里的默认对齐是居中，不是靠左（默认 HorizontalAlignment=Stretch 只在
+                                宽度没被写死时才表现为靠左）。不写这行，选框就会飘到 640 宽容器的中间。
+                            -->
+                            <ComboBox Style="{StaticResource ThemedComboBox}" Margin="0,8,0,0"
+                                      HorizontalAlignment="Left"
+                                      ItemsSource="{Binding ThemeOptions}"
+                                      SelectedValuePath="Value"
+                                      SelectedValue="{Binding SelectedTheme}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Display}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+
+                            <TextBlock FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource TextMuted}"
+                                       Text="{Binding ThemeHint}" />
+
+                            <Border Height="1" Background="{DynamicResource HairLine}" Margin="0,22,0,18" />
 
                             <TextBlock Text="内容源索引地址" FontSize="13" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextPrimary}" />
+                                       Foreground="{DynamicResource TextPrimary}" />
                             <TextBlock Text="启动器启动时拉取这个 index.json，所有游戏信息都从它推导，客户端不内置任何游戏。"
                                        FontSize="11.5" Margin="0,5,0,8" TextWrapping="Wrap"
-                                       Foreground="{StaticResource TextMuted}" />
+                                       Foreground="{DynamicResource TextMuted}" />
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -264,7 +314,7 @@
 
                             <TextBlock Text="允许的主机白名单（逗号分隔；留空表示不限制 https 主机）"
                                        FontSize="11.5" Margin="0,14,0,6"
-                                       Foreground="{StaticResource TextMuted}" />
+                                       Foreground="{DynamicResource TextMuted}" />
                             <TextBox Style="{StaticResource UrlBox}"
                                      Text="{Binding AllowedHosts, UpdateSourceTrigger=PropertyChanged}" />
 
@@ -273,17 +323,17 @@
                                       Content="允许明文 http（仅调试用；主机仍必须在上面的白名单里）" />
 
                             <TextBlock FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap"
-                                       Foreground="{StaticResource TextMuted}"
+                                       Foreground="{DynamicResource TextMuted}"
                                        Text="{Binding PolicyHint, StringFormat=当前生效策略：{0}}" />
 
                             <TextBlock FontSize="11.5" Margin="0,8,0,0" TextWrapping="Wrap"
-                                       Foreground="{StaticResource TextMuted}"
+                                       Foreground="{DynamicResource TextMuted}"
                                        Text="说明：https 是本启动器的默认要求。明文 http 需要同时满足两个条件才会被放行 —— 打开上面的开关，且把主机写进白名单。这样上线时不会因为一个开关就把所有主机都放开。" />
 
-                            <Border Height="1" Background="{StaticResource HairLine}" Margin="0,22,0,18" />
+                            <Border Height="1" Background="{DynamicResource HairLine}" Margin="0,22,0,18" />
 
                             <TextBlock Text="运行信息" FontSize="13" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextPrimary}" />
+                                       Foreground="{DynamicResource TextPrimary}" />
 
                             <Grid Margin="0,10,0,0">
                                 <Grid.ColumnDefinitions>
@@ -298,35 +348,35 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="数据目录" FontSize="12"
-                                           Foreground="{StaticResource TextMuted}" Margin="0,0,0,7" />
+                                           Foreground="{DynamicResource TextMuted}" Margin="0,0,0,7" />
                                 <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding DataRoot}" FontSize="12"
-                                           Foreground="{StaticResource TextSecondary}" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis"
                                            Margin="0,0,0,7" />
                                 <Button Grid.Row="0" Grid.Column="2" Style="{StaticResource GhostButton}" Content="打开"
                                         Height="28" Padding="12,0" Margin="10,0,0,7"
                                         Command="{Binding OpenDataFolderCommand}" />
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="游戏目录" FontSize="12"
-                                           Foreground="{StaticResource TextMuted}" Margin="0,0,0,7" />
+                                           Foreground="{DynamicResource TextMuted}" Margin="0,0,0,7" />
                                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding GamesRoot}" FontSize="12"
-                                           Foreground="{StaticResource TextSecondary}" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis"
                                            Margin="0,0,0,7" />
                                 <Button Grid.Row="1" Grid.Column="2" Style="{StaticResource GhostButton}" Content="打开"
                                         Height="28" Padding="12,0" Margin="10,0,0,7"
                                         Command="{Binding OpenGamesFolderCommand}" />
 
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="日志" FontSize="12"
-                                           Foreground="{StaticResource TextMuted}" />
+                                           Foreground="{DynamicResource TextMuted}" />
                                 <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LogsRoot}" FontSize="12"
-                                           Foreground="{StaticResource TextSecondary}" TextTrimming="CharacterEllipsis" />
+                                           Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis" />
                             </Grid>
 
-                            <Border Height="1" Background="{StaticResource HairLine}" Margin="0,22,0,18" />
+                            <Border Height="1" Background="{DynamicResource HairLine}" Margin="0,22,0,18" />
 
                             <TextBlock Text="断点续传验证" FontSize="13" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextPrimary}" />
+                                       Foreground="{DynamicResource TextPrimary}" />
                             <TextBlock FontSize="11.5" Margin="0,6,0,0" TextWrapping="Wrap"
-                                       Foreground="{StaticResource TextMuted}"
+                                       Foreground="{DynamicResource TextMuted}"
                                        Text="用 DevServer 的 --drop-after 参数可以让服务器在传输中途掐断连接。重新点击安装，客户端会从 .part 文件已有的字节数继续，而不是从头下载。" />
                         </StackPanel>
                     </ScrollViewer>
@@ -335,18 +385,18 @@
                     <StackPanel Grid.Row="2" MaxWidth="580" VerticalAlignment="Center"
                                 HorizontalAlignment="Center"
                                 Visibility="{Binding ShowLibraryEmptyState, Converter={StaticResource BoolToVis}}">
-                        <Border Width="46" Height="46" CornerRadius="14" Background="#1AFFFFFF"
+                        <Border Width="46" Height="46" CornerRadius="14" Background="{DynamicResource EmptyIconBg}"
                                 HorizontalAlignment="Center">
                             <TextBlock Text="!" FontSize="22" FontWeight="Bold"
-                                       Foreground="{StaticResource AccentBrush}"
+                                       Foreground="{DynamicResource AccentBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <TextBlock Text="{Binding EmptyStateTitle}" FontSize="16" FontWeight="SemiBold"
                                    Margin="0,14,0,0" HorizontalAlignment="Center"
-                                   Foreground="{StaticResource TextPrimary}" />
+                                   Foreground="{DynamicResource TextPrimary}" />
                         <TextBlock Text="{Binding EmptyStateDetail}" FontSize="12" Margin="0,10,0,0"
                                    TextWrapping="Wrap" TextAlignment="Center" LineHeight="19"
-                                   Foreground="{StaticResource TextMuted}" />
+                                   Foreground="{DynamicResource TextMuted}" />
                         <Button Style="{StaticResource PrimaryButton}" Content="重试" Width="110"
                                 Command="{Binding RefreshCommand}" Margin="0,18,0,0"
                                 HorizontalAlignment="Center" />
@@ -355,9 +405,9 @@
             </Grid>
 
             <!-- ===== 状态栏 ===== -->
-            <Border Grid.Row="2" Background="#0AFFFFFF" CornerRadius="0,0,14,14" Padding="20,8">
+            <Border Grid.Row="2" Background="{DynamicResource StatusBarBg}" CornerRadius="0,0,14,14" Padding="20,8">
                 <TextBlock Text="{Binding StatusText}" FontSize="11.5"
-                           Foreground="{StaticResource TextMuted}" TextTrimming="CharacterEllipsis" />
+                           Foreground="{DynamicResource TextMuted}" TextTrimming="CharacterEllipsis" />
             </Border>
         </Grid>
     </Border>

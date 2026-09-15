@@ -1,22 +1,17 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- ============ 调色板 ============ -->
-    <Color x:Key="WindowBgColor">#E6121419</Color>
-    <Color x:Key="AccentColor">#FF4C8DFF</Color>
-    <Color x:Key="AccentSoftColor">#FF7FB0FF</Color>
+    <!--
+        ============ 共享样式 ============
+        这个文件只放"形状与结构"，颜色一律通过 DynamicResource 引用调色板里的键
+        （Theme/Palette.Dark.xaml 或 Theme/Palette.Light.xaml，由 ThemeManager 挂载）。
 
-    <SolidColorBrush x:Key="WindowBg" Color="{StaticResource WindowBgColor}" />
-    <SolidColorBrush x:Key="SidebarBg" Color="#0DFFFFFF" />
-    <SolidColorBrush x:Key="CardBg" Color="#12FFFFFF" />
-    <SolidColorBrush x:Key="CardBgHover" Color="#1CFFFFFF" />
-    <SolidColorBrush x:Key="HairLine" Color="#1AFFFFFF" />
-    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
-    <SolidColorBrush x:Key="TextPrimary" Color="#FFF2F4F8" />
-    <SolidColorBrush x:Key="TextSecondary" Color="#FF9AA3B2" />
-    <SolidColorBrush x:Key="TextMuted" Color="#FF6B7280" />
-    <SolidColorBrush x:Key="DangerBrush" Color="#FFF26D6D" />
-    <SolidColorBrush x:Key="SuccessBrush" Color="#FF5CD68A" />
+        为什么必须用 DynamicResource 而不是 StaticResource：
+        StaticResource 在解析 XAML 时就把画刷实例写进了元素属性，换主题时**不会重新求值**，
+        界面会保持旧主题的颜色。DynamicResource 挂的是"键"，换掉调色板后立刻重新取值。
+
+        例外：UiFont / BoolToVis 与主题无关，继续用 StaticResource（省一点开销）。
+    -->
 
     <FontFamily x:Key="UiFont">Microsoft YaHei UI, Segoe UI, sans-serif</FontFamily>
 
@@ -26,7 +21,7 @@
     <Style x:Key="CaptionButton" TargetType="Button">
         <Setter Property="Width" Value="44" />
         <Setter Property="Height" Value="32" />
-        <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
         <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Cursor" Value="Hand" />
@@ -38,7 +33,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="#22FFFFFF" />
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource CaptionHoverBg}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -55,7 +50,8 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="#E81123" />
+                            <!-- 关闭键的红底是跨主题固定的，浅色下也一样（Windows 的惯例） -->
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource CloseHoverBg}" />
                             <Setter Property="Foreground" Value="White" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -66,7 +62,7 @@
 
     <!-- ============ 侧边栏导航 ============ -->
     <Style x:Key="NavItem" TargetType="ListBoxItem">
-        <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
         <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
         <Setter Property="FontSize" Value="13.5" />
         <Setter Property="Margin" Value="0,2" />
@@ -77,19 +73,19 @@
                     <Grid>
                         <Border x:Name="Bg" Background="Transparent" CornerRadius="8" Height="38" />
                         <Border x:Name="Bar" Width="3" Height="18" HorizontalAlignment="Left"
-                                CornerRadius="2" Background="{StaticResource AccentBrush}"
+                                CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                 Opacity="0" Margin="2,0,0,0" />
                         <ContentPresenter Margin="16,0,0,0" VerticalAlignment="Center" />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="#14FFFFFF" />
-                            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource NavHoverBg}" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="#1FFFFFFF" />
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource NavSelectedBg}" />
                             <Setter TargetName="Bar" Property="Opacity" Value="1" />
-                            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
                             <Setter Property="FontWeight" Value="SemiBold" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -117,7 +113,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bg" CornerRadius="8" Background="{StaticResource AccentBrush}">
+                    <Border x:Name="Bg" CornerRadius="8" Background="{DynamicResource AccentBrush}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
                                           Margin="{TemplateBinding Padding}" />
                     </Border>
@@ -138,18 +134,18 @@
     </Style>
 
     <Style x:Key="GhostButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bg" CornerRadius="8" Background="#1AFFFFFF"
-                            BorderBrush="{StaticResource HairLine}" BorderThickness="1">
+                    <Border x:Name="Bg" CornerRadius="8" Background="{DynamicResource ControlBg}"
+                            BorderBrush="{DynamicResource HairLine}" BorderThickness="1">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
                                           Margin="{TemplateBinding Padding}" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="#2AFFFFFF" />
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource ControlBgHover}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bg" Property="Opacity" Value="0.35" />
@@ -162,8 +158,8 @@
 
     <!-- ============ 输入框 ============ -->
     <Style x:Key="UrlBox" TargetType="TextBox">
-        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
-        <Setter Property="CaretBrush" Value="{StaticResource TextPrimary}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource TextPrimary}" />
         <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Height" Value="34" />
@@ -172,14 +168,14 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
-                    <Border x:Name="Bg" CornerRadius="8" Background="#1AFFFFFF"
-                            BorderBrush="{StaticResource HairLine}" BorderThickness="1">
+                    <Border x:Name="Bg" CornerRadius="8" Background="{DynamicResource ControlBg}"
+                            BorderBrush="{DynamicResource HairLine}" BorderThickness="1">
                         <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
                                       VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                            <Setter TargetName="Bg" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            <Setter TargetName="Bg" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -187,9 +183,9 @@
         </Setter>
     </Style>
 
-    <!-- ============ 复选框（深色主题） ============ -->
+    <!-- ============ 复选框 ============ -->
     <Style x:Key="DarkCheck" TargetType="CheckBox">
-        <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
         <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
         <Setter Property="FontSize" Value="12.5" />
         <Setter Property="Cursor" Value="Hand" />
@@ -198,10 +194,10 @@
                 <ControlTemplate TargetType="CheckBox">
                     <StackPanel Orientation="Horizontal" Background="Transparent">
                         <Border x:Name="Box" Width="16" Height="16" CornerRadius="4"
-                                Background="#1AFFFFFF" BorderBrush="{StaticResource HairLine}"
+                                Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource HairLine}"
                                 BorderThickness="1" VerticalAlignment="Center">
                             <Path x:Name="Tick" Data="M 0,4 L 4,8 L 11,0"
-                                  Stroke="{StaticResource AccentBrush}" StrokeThickness="1.8"
+                                  Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.8"
                                   StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                   Visibility="Collapsed"
                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -211,11 +207,11 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Tick" Property="Visibility" Value="Visible" />
-                            <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-                            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Box" Property="Background" Value="#2AFFFFFF" />
+                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource ControlBgHover}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -230,11 +226,122 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ProgressBar">
                     <Grid>
-                        <Border CornerRadius="3" Background="#22FFFFFF" />
+                        <Border CornerRadius="3" Background="{DynamicResource TrackBg}" />
                         <Border x:Name="PART_Track" />
                         <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="3"
-                                Background="{StaticResource AccentBrush}" />
+                                Background="{DynamicResource AccentBrush}" />
                     </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============ 下拉选择框（设置页的主题选择栏） ============ -->
+    <!--
+      必须自己写模板：WPF 默认 ComboBox 的花式模板把文字颜色写死成系统色，
+      深色/浅色下必有一边看不清（经典问题是浅色主题里"白字白底"）。
+      这里用动态资源重画，两套主题都能读。
+
+      结构上要点：
+        - ToggleButton 负责整个"闭合态"的点击区域与外观（PART_ ... 不是必须的，
+          但 IsDropDownOpen 必须由它双向驱动，否则点不开）。
+        - Popup 里的 ItemsPresenter 渲染 ItemsSource；这里不设 IsEditable，
+          所以不需要 PART_EditableTextBox。
+    -->
+    <Style x:Key="ThemedComboBoxItem" TargetType="ComboBoxItem">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="Padding" Value="10,7" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="Bg" Background="Transparent" CornerRadius="6" Margin="4,1"
+                            Padding="{TemplateBinding Padding}">
+                        <!--
+                            ContentTemplate 必须跟着往下传。
+                            自研的 ComboBoxItem 模板不会自动套用父级 ComboBox 的 ItemTemplate，
+                            漏了这行的话，下拉项会显示成 ThemeOption { Value = light, ... } 这种
+                            record 的 ToString()，而不是「浅色模式」。
+                        -->
+                        <ContentPresenter VerticalAlignment="Center"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource ControlBg}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource NavSelectedBg}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="ThemedComboBox" TargetType="ComboBox">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Width" Value="168" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="ItemContainerStyle" Value="{StaticResource ThemedComboBoxItem}" />
+        <Setter Property="MaxDropDownHeight" Value="240" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <ToggleButton x:Name="Toggle" Focusable="False" ClickMode="Press"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="Bg" CornerRadius="8" Background="{DynamicResource ControlBg}"
+                                            BorderBrush="{DynamicResource HairLine}" BorderThickness="1">
+                                        <Path x:Name="Arrow" Data="M 0,0 L 4.5,4.5 L 9,0"
+                                              Stroke="{DynamicResource TextSecondary}" StrokeThickness="1.6"
+                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                              HorizontalAlignment="Right" VerticalAlignment="Center"
+                                              Margin="0,0,12,0" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource ControlBgHover}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+
+                        <!-- 当前选中项：IsHitTestVisible=False，点击穿透到上面的 ToggleButton -->
+                        <ContentPresenter Margin="12,0,30,0" VerticalAlignment="Center"
+                                          IsHitTestVisible="False"
+                                          Content="{TemplateBinding SelectionBoxItem}"
+                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" />
+                        <Popup x:Name="PART_Popup" AllowsTransparency="True" Focusable="False"
+                               Placement="Bottom" VerticalOffset="4"
+                               IsOpen="{TemplateBinding IsDropDownOpen}"
+                               PopupAnimation="Fade">
+                            <Border MinWidth="{TemplateBinding ActualWidth}" MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                    CornerRadius="8" Background="{DynamicResource WindowBg}"
+                                    BorderBrush="{DynamicResource HairLine}" BorderThickness="1"
+                                    Padding="0,4">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -245,6 +352,12 @@
       描边动画刻意不直接动 BorderBrush 的颜色：Style/模板里的画刷是共享实例，
       动画共享画刷会串到所有卡片上。这里改为动画一个独立光晕 Border 的 Opacity +
       ScaleTransform，两者都是逐元素属性，天然隔离。
+
+      悬停变亮同样是**另起一层** Hover Border 动画它的 Opacity，而不是对 Body 的
+      Background 做 ColorAnimation。两个理由：
+        1) ColorAnimation 会把 Background 属性**锁在动画值上**（FillBehavior=HoldEnd），
+           换主题时 Body 就不再跟随调色板 —— 卡片会变成"主题切换后唯一没变色的一块"。
+        2) 动画共享画刷会串色（同上的老问题）。用 Opacity 就完全没有这两个坑。
     -->
     <Style x:Key="GameCardButton" TargetType="Button">
         <Setter Property="Cursor" Value="Hand" />
@@ -253,7 +366,7 @@
                 <ControlTemplate TargetType="Button">
                     <Grid>
                         <Border x:Name="Halo" CornerRadius="16" BorderThickness="1.6"
-                                BorderBrush="{StaticResource AccentBrush}" Opacity="0"
+                                BorderBrush="{DynamicResource AccentBrush}" Opacity="0"
                                 RenderTransformOrigin="0.5,0.5">
                             <Border.RenderTransform>
                                 <ScaleTransform x:Name="HaloScale" ScaleX="1" ScaleY="1" />
@@ -262,10 +375,17 @@
                                 <DropShadowEffect Color="#FF4C8DFF" BlurRadius="18" ShadowDepth="0" Opacity="0.55" />
                             </Border.Effect>
                         </Border>
-                        <Border x:Name="Body" CornerRadius="15" Background="{StaticResource CardBg}"
-                                BorderBrush="{StaticResource HairLine}" BorderThickness="1" Margin="1.6">
-                            <ContentPresenter />
-                        </Border>
+                        <!--
+                            层的顺序不能动：Body（底色）→ Hover（悬停高亮）→ 内容。
+                            Hover 必须夹在底色和内容之间。之前写在内容之后，悬停时那层
+                            不透明的高亮会把标题/简介整个盖住 —— 深色主题下这个 bug 恰好
+                            被"深色叠深色"掩盖住了，浅色主题才暴露出来（白底盖黑字）。
+                        -->
+                        <Border x:Name="Body" CornerRadius="15" Background="{DynamicResource CardBg}"
+                                BorderBrush="{DynamicResource HairLine}" BorderThickness="1" Margin="1.6" />
+                        <Border x:Name="Hover" CornerRadius="15" Background="{DynamicResource CardBgHover}"
+                                Margin="1.6" Opacity="0" IsHitTestVisible="False" />
+                        <ContentPresenter />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -278,8 +398,8 @@
                                                          To="1.022" Duration="0:0:0.14" />
                                         <DoubleAnimation Storyboard.TargetName="HaloScale" Storyboard.TargetProperty="ScaleY"
                                                          To="1.022" Duration="0:0:0.14" />
-                                        <ColorAnimation Storyboard.TargetName="Body" Storyboard.TargetProperty="Background.Color"
-                                                        To="#1CFFFFFF" Duration="0:0:0.14" />
+                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity"
+                                                         To="1" Duration="0:0:0.14" />
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.EnterActions>
@@ -292,8 +412,8 @@
                                                          To="1" Duration="0:0:0.18" />
                                         <DoubleAnimation Storyboard.TargetName="HaloScale" Storyboard.TargetProperty="ScaleY"
                                                          To="1" Duration="0:0:0.18" />
-                                        <ColorAnimation Storyboard.TargetName="Body" Storyboard.TargetProperty="Background.Color"
-                                                        To="#12FFFFFF" Duration="0:0:0.18" />
+                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity"
+                                                         To="0" Duration="0:0:0.18" />
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.ExitActions>

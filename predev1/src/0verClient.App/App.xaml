@@ -3,8 +3,23 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Application.Resources>
         <ResourceDictionary>
+            <!--
+                这里是**深色主题的默认值**，同时也是 XAML 设计器里的预览外观。
+
+                运行时这两份会被 Theme/ThemeManager.Apply 整体替换掉：
+                用户在设置里选了浅色，启动时挂的就是 Theme.xaml + Palette.Light.xaml。
+                所以：
+                  - 改颜色请改 Theme/Palette.Dark.xaml / Palette.Light.xaml，不要写在这里；
+                  - 加了一个新的颜色键，两个调色板文件必须都加，否则换到另一套主题时
+                    DynamicResource 会抛 ResourceReferenceKeyNotFoundException。
+                    （自检参数 selfcheck-themes 会真的把两套主题各建一次窗口来抓这个。）
+
+                顺序不能反：Theme.xaml（样式）必须排在调色板前面，
+                因为样式里的 BasedOn="{StaticResource ...}" 在解析时就要能找到目标样式。
+            -->
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Theme/Theme.xaml" />
+                <ResourceDictionary Source="Theme/Palette.Dark.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

@@ -12,6 +12,14 @@
 > 🎮 **以后加游戏 / 发新版本看 [`docs/ADD-GAME.md`](docs/ADD-GAME.md)** ——
 > 一页纸：打包 → 上传 → 停服换版 → 验证，附坑表和已知限制。
 
+## 最近改动
+
+- **界面主题**：设置页新增「界面主题」选择栏，可选深色 / 浅色，选完立刻生效并持久化。
+  实现与踩坑见下方[「界面主题」](#界面主题)。加颜色要同时改两个调色板文件。
+- **`ServerIP.txt`**：已按 `ServerIP.txt.example` 建好（内容 `159.75.154.122`）。
+  `build-dist.ps1` 会据此给 `dist\client\` 生成 `launcher.json`，玩家拿到客户端不用手打地址。
+  该文件在 `.gitignore` 里，不会提交。
+
 ## 跑起来
 
 ```powershell
@@ -148,23 +156,80 @@ dotnet run --project tools\SmokeTest -- --index http://127.0.0.1:8787/index.json
 **界面部分**：`0verClient.exe --selfcheck` 会把主窗口的全部 XAML 和游戏卡片模板真正实例化一遍
 再退出（退出码 0 = 通过）。它专门抓**编译期看不见的绑定模式错误**。
 
-改完 `Theme.xaml` / `MainWindow.xaml` 之后还可以真的**看一眼**：
+主题是两套的，所以自检也分三层，缺一层就会漏掉一整类 bug：
+
+| 命令 | 抓什么 | 抓不到什么 |
+|---|---|---|
+| `--selfcheck` | 当前主题的 XAML 与卡片模板能否实例化 | 另一套主题、换主题会不会真的变色 |
+| `--selfcheck-themes` | **两套调色板**各建一次窗口 —— 少一个颜色键会在这里抛 `ResourceReferenceKeyNotFoundException` | 换主题时元素会不会重新求值 |
+| `--selfcheck-theme-switch` | 在一个活窗口上真的切一次主题，读元素实际颜色，断言 深色→浅色→深色 颜色确实变了 | —— |
+
+第三条是有存在必要的：只要哪个属性被写回 `StaticResource`，换主题时它会**继续显示旧颜色且不报任何错**。
+前两条都发现不了 —— 它们每次都是在"新主题 + 新窗口"下跑的，此时 StaticResource 恰好也是对的。
+
+改完 `Theme.xaml` / `Palette.*.xaml` / `MainWindow.xaml` 之后还可以真的**看一眼**：
 
 ```powershell
-0verClient.exe --screenshot build\ui-shot.png
+0verClient.exe --screenshot build\ui-shot.png                      # 游戏库（含一张强制悬停的卡片）
+0verClient.exe --theme light --screenshot build\ui-light.png       # 指定主题
+0verClient.exe --page settings --screenshot build\set.png          # 设置页（主题选择栏在那里）
 ```
 
 它会把主窗口连同一张**被强制成悬停状态**的卡片渲染成 PNG 再退出。
 描边被裁、间距不对这类问题只有真实渲染才暴露，而自检只能证明"没抛异常"。
-（悬停态是直接设模板部件的动画终值实现的，所以改 `Theme.xaml` 里的动画数值时，
-`App.xaml.cs` 的 `ForceHoverOnFirstCard` 要跟着改。）
+（悬停态是设模板部件的动画终值实现的 —— `Halo`/`HaloScale` 的数值、`Hover` 的 `Opacity=1`；
+改 `Theme.xaml` 里的动画数值时，`App.xaml.cs` 的 `ForceHoverOnFirstCard` 要跟着改。）
+
+这套截图实测抓出过一个真 bug：悬停高亮层原来叠在**内容之上**，深色主题下"深色盖深色"看不出来，
+切到浅色就变成一块不透明白板把标题和简介全糊掉了 —— 自检当时是绿的。
 
 这个自检做过 **A/B 对照实验**：把 bug 改回去后两个版本都编译 0 error，但自检在修好的版本返回 `0`、
 在坏版本返回 `1` 并抛出 `XamlParseException`。所以它是真的在测东西，不是走过场。
 
 **仍然没验证的**
-- 实际观感（半透明、圆角、悬停描边）需要你亲眼看一次。
+- 实际观感（半透明、圆角、悬停描边）需要你亲眼看一次。软渲染（`RenderTargetBitmap`）测不出真机合成效果。
 - `.cmd` / `.bat` 入口的启动分支（TestPack 用的就是它）无法在无界面环境里点「启动」验证。
+- 主题下拉框**展开后**的列表：无头环境点不开 Popup，只能验证闭合态与渲染正确。展开态的配色与
+  默认 ComboBox 不同（默认模板把文字颜色写死，浅色主题下会白字白底），所以自研了模板。
+
+## 界面主题
+
+设置页第一项就是「界面主题」，可选**深色模式** / **浅色模式**，选完**立刻生效**（不需要点保存），
+并写进 `%LOCALAPPDATA%\0verClient\settings.json` 的 `theme` 字段，下次启动沿用。
+
+实现分三层，加新颜色时三层都要动：
+
+```
+Theme/Palette.Dark.xaml    只放颜色（深色）
+Theme/Palette.Light.xaml   只放颜色（浅色）—— 键名必须与深色一一对应
+Theme/Theme.xaml           只放样式/模板，颜色一律 DynamicResource 引用上面的键
+Theme/ThemeManager.cs      换主题 = 把 Application.Resources 里的调色板整体换掉
+```
+
+**为什么颜色必须用 `DynamicResource`**：`StaticResource` 在解析 XAML 时就把画刷实例写进了元素属性，
+换主题时不会重新求值 —— 界面会保持旧颜色，而且**不报错**。命令行走过的弯路（每个键都要在两个文件里
+存在、`--selfcheck-theme-switch` 就是为这条规矩配的保险）见上一节。
+
+两个容易踩的点：
+
+- **浅色主题的窗口底色刻意接近不透明**（`#F7F8F8FA`）。半透明窗口叠在亮色桌面上会让深色文字发灰、
+  对比度不可控，而浅色主题本来就该是干净清晰的观感。层次感交给卡片和侧边栏。
+- **卡片悬停用 `Opacity` 动画，不要用 `ColorAnimation` 动 `Background`**。后者会把属性锁在动画值上
+  （`FillBehavior=HoldEnd`），换主题时那张卡片就成了"唯一没变色的一块"；动画共享画刷还会串色
+  （多个卡片一起亮）。`Opacity` 两个坑都没有。同理，悬停高亮层必须夹在**底色和内容之间**。
+
+### 改主题要不要重新打包服务端？
+
+**不需要。** 主题完全在客户端（`0verClient.App`）。判断标准就一条：**改动碰没碰
+`0verClient.Server` 或 `0verClient.Core`**。
+
+| 改了什么 | 要重打 | 怎么发 |
+|---|---|---|
+| 主题 / 界面 / XAML / 设置页 | 只重打 `-Target client` | 更新 `dist\server\site\latest.json`（见 `docs/ADD-GAME.md` 的「启动器自身更新」） |
+| `0verClient.Server` 或 `0verClient.Core` | 两个都要 | 整个 `dist\server\` 文件夹一起换掉 |
+
+注意 `0verClient.Core` 被**两端同时引用**，所以动它就必须重打服务端 —— 这是最容易漏的一条。
+另外客户端的 WPF 界面对服务端是"零要求"的：协议没变，老服务端配新客户端完全可以。
 
 ## 技术栈（为什么是 .NET + WPF）
 
@@ -194,6 +259,10 @@ src/0verClient.Core/         引擎：不依赖 UI，可无头测试
   Launch/                    进程守护：启动、退出码、游玩时长、崩溃判定
   Util/                      SafePath 路径守护、UrlPolicy 放行策略、Hashing、HardLink
 src/0verClient.App/          WPF 外壳：半透明圆角窗口、侧边栏、卡片悬停描边
+  Theme/Palette.Dark.xaml    深色主题调色板（只有颜色）
+  Theme/Palette.Light.xaml   浅色主题调色板（键名与深色一一对应）
+  Theme/Theme.xaml           共享样式与模板（颜色一律 DynamicResource）
+  Theme/ThemeManager.cs      运行时换主题（整体替换合并字典里的调色板）
 src/0verClient.Server/       服务器端程序：把站点目录用 HTTP 提供出去（Range + 每连接一线程）
 samples/DemoGame/            示例"游戏"（独立 WPF 程序，演示真实启动）
 samples/TestPack/            占位测试包（2152 字节，验证从服务器下载）
@@ -242,7 +311,7 @@ docs/index.html              HTML 使用说明，可直接放进站点根目录�
 | 游戏更新 | **已实现**：卡片显示「可更新 vX → vY」，点击增量更新（未变的文件硬链接复用） | 更新前备份安装目录里的存档 |
 | 发布 | 仅 Debug 构建 | 框架依赖发布约 1 MB，但玩家机器需要 .NET 10 桌面运行时；备选 self-contained（约 150 MB） |
 
-**三条编辑本仓库时要守的规矩**（都是踩过坑总结的）：
+**五条编辑本仓库时要守的规矩**（都是踩过坑总结的）：
 
 1. `run-demo.ps1` 必须保持**纯 ASCII** —— Windows PowerShell 5.1 会按 ANSI 代码页
    解码无 BOM 的 `.ps1`，中文会变乱码并直接破坏语法；控制台工具同理（所以 Publish 输出是英文）。
@@ -250,10 +319,19 @@ docs/index.html              HTML 使用说明，可直接放进站点根目录�
    约束成 `SwitchParameter`，再写 `$smokeTest = <路径>` 就会抛类型转换错误。
 3. XAML 里绑定到**只读属性**时必须显式写 `Mode=OneWay`。以下目标属性元数据是
    `BindsTwoWayByDefault`：`RangeBase.Value`（含 ProgressBar/Slider）、`TextBox.Text`、
-   `CheckBox.IsChecked`、`ListBox.SelectedIndex`。不写 Mode 就按 TwoWay 绑，运行时会抛
-   `XamlParseException` —— **编译期 0 error**，而且卡片只在游戏库非空时才渲染，
-   所以内容源没起来时这个错误会一直躲着。改完 XAML 请跑一次
-   `0verClient.exe --selfcheck`。
+   `CheckBox.IsChecked`、`ListBox.SelectedIndex`、`Selector.SelectedValue`。不写 Mode 就按 TwoWay 绑，
+   绑到**只读**属性时运行时会抛 `XamlParseException` —— **编译期 0 error**，而且卡片只在游戏库
+   非空时才渲染，所以内容源没起来时这个错误会一直躲着。改完 XAML 请跑一次
+   `0verClient.exe --selfcheck-themes`（比 `--selfcheck` 多覆盖一套主题）。
+   反过来，绑到**可写**属性（例如设置页的 `SelectedTheme`）时不但不用写 `Mode=OneWay`，
+   写了反而是错的 —— 那样下拉框就选不动了。
+4. **颜色只能进 `Theme/Palette.*.xaml`，并且必须同时加进深色和浅色两份**；样式里一律用
+   `DynamicResource` 引用，`StaticResource` 会让换主题静默失效（不报错，只是不变色）。
+   加完跑 `0verClient.exe --selfcheck-theme-switch` 确认界面真的会跟着变。
+5. **宽度被写死的控件，在 `StackPanel` 里必须显式写 `HorizontalAlignment="Left"`**，
+   否则会被居中。默认 `HorizontalAlignment=Stretch` 只在宽度没被写死时才表现为靠左 ——
+   主题下拉框（样式里 `Width=168`）就是这么飘到 640 宽容器正中间的。
+   这类问题自检抓不到（布局完全合法），只有截图看得见。
 
 **快捷方式建议**：`0verClient.slnx` 用 Visual Studio 打开最省事；
 命令行下 `run-demo.ps1` 刻意逐个编译 csproj 而不是编译 slnx —— 报错更直接。
